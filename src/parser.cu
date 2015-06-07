@@ -118,6 +118,8 @@ void parseCommandLine(
     *parallelMode = THREADED_PARALLEL_MODE;
   else if (pMode == "mpi")
     *parallelMode = MPI_PARALLEL_MODE;
+  else if (pMode == "graybat")
+    *parallelMode = GRAYBAT_PARALLEL_MODE;
   else
     *parallelMode = NO_PARALLEL_MODE;
 

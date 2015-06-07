@@ -64,7 +64,7 @@ set(CUDA_NVCC_LINKER_FLAGS ${CUDA_NVCC_FLAGS})
 ###############################################################################
 # Boost
 ###############################################################################
-find_package(Boost 1.48.0 COMPONENTS system program_options filesystem REQUIRED)
+find_package(Boost 1.48.0 COMPONENTS mpi system program_options filesystem REQUIRED)
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 set(LIBS ${LIBS} ${Boost_LIBRARIES})
 
@@ -187,7 +187,10 @@ warn_path_cuda("C_INCLUDE_PATH")
 ###############################################################################
 set(HASEonGPU_NAME "calcPhiASE")
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include
+		    ${CMAKE_CURRENT_SOURCE_DIR}/include/GrayBat/include)
+
+
 cuda_include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 file(GLOB SRCFILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c*")

@@ -45,6 +45,7 @@ namespace fs = boost::filesystem;
 #include <calc_phi_ase.hpp>
 #include <calc_phi_ase_threaded.hpp>
 #include <calc_phi_ase_mpi.hpp>
+#include <calc_phi_ase_graybat.hpp>
 #include <parser.hpp> /* DeviceMode, ParallelMode */
 #include <write_to_vtk.hpp>
 #include <write_matlab_output.hpp>
@@ -241,6 +242,22 @@ int main(int argc, char **argv){
               devices.at(0)
               );
           runmode = "GPU mode MPI";
+          break;
+      case GRAYBAT_PARALLEL_MODE:
+          usedGpus = calcPhiAseGrayBat( minRaysPerSample,
+					maxRaysPerSample,
+					maxRepetitions,
+					meshs[0],
+					sigmaAInterpolated,
+					sigmaEInterpolated,
+					mseThreshold,
+					useReflections,
+					phiAse,
+					mse,
+					totalRays,
+					devices.at(0)
+					);
+          runmode = "GPU mode GrayBat";
           break;
 
         default:
