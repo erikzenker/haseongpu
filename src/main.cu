@@ -112,60 +112,63 @@ int main(int argc, char **argv){
 
   // Can the following block be moved into
   // a parse function with a thin interface ?
-  {
-      parseCommandLine(argc,
-		       argv,
-		       &minRaysPerSample,
-		       &maxRaysPerSample,
-		       &inputPath,
-		       &writeVtk,
-		       &deviceMode,
-		       &parallelMode,
-		       &useReflections,
-		       &maxGpus,
-		       &minSampleRange,
-		       &maxSampleRange,
-		       &maxRepetitions,
-		       &outputPath,
-		       &mseThreshold,
-		       &lambdaResolution);
 
-      printCommandLine(minRaysPerSample,
-		       maxRaysPerSample,
-		       inputPath,
-		       writeVtk,
-		       compareLocation,
-		       deviceMode,
-		       parallelMode,
-		       useReflections,
-		       maxGpus,
-		       minSampleRange,
-		       maxSampleRange,
-		       maxRepetitions,
-		       outputPath,
-		       mseThreshold);
+  //
+  // BEGIN PARSE BLOCK
+  //
+  parseCommandLine(argc,
+		   argv,
+		   &minRaysPerSample, // exp
+		   &maxRaysPerSample, // exp
+		   &inputPath, // opt
+		   &writeVtk,  // opt
+		   &deviceMode,// opt
+		   &parallelMode, // opt
+		   &useReflections, // exp
+		   &maxGpus, // opt
+		   &minSampleRange, // opt
+		   &maxSampleRange, // opt
+		   &maxRepetitions, // exp
+		   &outputPath, // opt
+		   &mseThreshold, // exp
+		   &lambdaResolution); // opt
+
+  printCommandLine(minRaysPerSample,
+		   maxRaysPerSample,
+		   inputPath,
+		   writeVtk,
+		   compareLocation,
+		   deviceMode,
+		   parallelMode,
+		   useReflections,
+		   maxGpus,
+		   minSampleRange,
+		   maxSampleRange,
+		   maxRepetitions,
+		   outputPath,
+		   mseThreshold);
   
-      // Set/Test device to run experiment with
-      //
-      //TODO: this call takes a LOT of time (2-5s). Can this be avoided?
-      //TODO: maybe move this to a place where GPUs are actually needed (for_loops_clad doesn't even need GPUs!)
-      devices = getFreeDevices(maxGpus);
+  // Set/Test device to run experiment with
+  //
+  //TODO: this call takes a LOT of time (2-5s). Can this be avoided?
+  //TODO: maybe move this to a place where GPUs are actually needed (for_loops_clad doesn't even need GPUs!)
+  devices = getFreeDevices(maxGpus);
 
-      // sanity checks
-      if(checkParameterValidity(argc,
-				minRaysPerSample,
-				&maxRaysPerSample,
-				inputPath,
-				devices.size(),
-				deviceMode,
-				parallelMode,
-				&maxGpus,
-				minSampleRange,
-				maxSampleRange,
-				maxRepetitions,
-				outputPath,
-				&mseThreshold)) return 1;
-  }
+  // sanity checks
+  if(checkParameterValidity(argc,
+			    minRaysPerSample,
+			    &maxRaysPerSample,
+			    inputPath,
+			    devices.size(),
+			    deviceMode,
+			    parallelMode,
+			    &maxGpus,
+			    minSampleRange,
+			    maxSampleRange,
+			    maxRepetitions,
+			    outputPath,
+			    &mseThreshold)) return 1;
+
   
   dout(V_INFO) << "parameter validity was checked!" << std::endl;
 
@@ -181,8 +184,8 @@ int main(int argc, char **argv){
   assert(sigmaE.size() == lambdaE.size());
 
   // Interpolate sigmaA / sigmaE function
-  std::vector<double> sigmaAInterpolated = interpolateLinear(sigmaA, lambdaA, lambdaResolution);
-  std::vector<double> sigmaEInterpolated = interpolateLinear(sigmaE, lambdaE, lambdaResolution);
+  std::vector<double> sigmaAInterpolated = interpolateLinear(sigmaA, lambdaA, lambdaResolution); // exp
+  std::vector<double> sigmaEInterpolated = interpolateLinear(sigmaE, lambdaE, lambdaResolution); // exp
   assert(sigmaAInterpolated.size() == sigmaEInterpolated.size());
 
   // Calc max sigmaA / sigmaE
@@ -190,10 +193,10 @@ int main(int argc, char **argv){
   double maxSigmaE = 0.0;
   double maxSigmaA = 0.0;
   for(unsigned i = 0; i < sigmaE.size(); ++i){
-    if(sigmaE.at(i) > maxSigmaE){
-      maxSigmaE = sigmaE.at(i);
-      maxSigmaA = sigmaA.at(i);
-    }
+      if(sigmaE.at(i) > maxSigmaE){
+	  maxSigmaE = sigmaE.at(i);
+	  maxSigmaA = sigmaA.at(i);
+      }
   }
 
   // Parse experientdata and fill mesh
@@ -202,11 +205,15 @@ int main(int argc, char **argv){
   checkSampleRange(&minSampleRange,&maxSampleRange,meshs[0].numberOfSamples);
 
   // Solution vector
-  std::vector<double>   dndtAse(meshs[0].numberOfSamples, 0);
-  std::vector<float>    phiAse(meshs[0].numberOfSamples, 0);
-  std::vector<double>   mse(meshs[0].numberOfSamples, 100000);
-  std::vector<unsigned> totalRays(meshs[0].numberOfSamples, 0);
+  std::vector<double>   dndtAse(meshs[0].numberOfSamples, 0); 
+  std::vector<float>    phiAse(meshs[0].numberOfSamples, 0); // exp
+  std::vector<double>   mse(meshs[0].numberOfSamples, 100000); // exp
+  std::vector<unsigned> totalRays(meshs[0].numberOfSamples, 0); // exp
 
+  //
+  // END PARSE BLOCK
+  //
+      
   // Run Experiment
   std::vector<pthread_t> threadIds(maxGpus, 0);
   std::vector<float> runtimes(maxGpus, 0);
