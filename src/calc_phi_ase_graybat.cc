@@ -20,10 +20,11 @@
 
 // STL
 #include <vector>
-#include <iostream>  /* std::cout     */
-#include <algorithm> /* std::generate */
+#include <algorithm> /* std::iota */
+#include <tuple>     /* std::make_tuple, std::tuple, std::get */
 
-// haseongpu
+
+// HASEonGPU
 #include <calc_phi_ase_mpi.hpp>
 #include <calc_phi_ase.hpp>
 #include <mesh.hpp>
@@ -36,14 +37,119 @@
 #include <pattern/FullyConnected.hpp>
 #include <mapping/Roundrobin.hpp>
 
-struct Increment {
-    unsigned current;
-    Increment(unsigned init) : current(init) {}
+
+// Const messages
+const int abortTag   = -1;
+const float requestTag = -1.0;
+const std::array<float, 4> requestMsg{{requestTag, 0, 0, 0}};
+const std::array<int, 1> abortMsg{{abortTag}};
+
+// Only for TESTING
+typedef std::tuple<unsigned, unsigned, unsigned, Mesh&, std::vector<double>&, std::vector<double>&, double, bool, std::vector<float>&, std::vector<double>&, std::vector<unsigned>, unsigned> Experiment;
+
     
-    unsigned operator()(){
-	return current++;
+
+template <class Vertex, class Cage>
+void masterFunction(Vertex master, const std::vector<unsigned> samples, Cage &cage, Experiment e){
+    typedef typename Cage::Edge Edge;
+    
+    // Messages
+    std::array<float, 4> resultMsg;
+    std::array<int, 1>   sampleMsg; 
+    
+    for(auto sample = samples.begin(); sample != samples.end();){
+
+	for(Edge inEdge : cage.getInEdges(master)){
+
+	    // Receive request or results
+	    cage.recv(inEdge, resultMsg);
+		
+	    if(resultMsg[0] == requestTag){
+		sampleMsg = std::array<int, 1>{{ (int) *sample++ }};
+
+		// Send next sample
+		cage.send(inEdge.inverse(), sampleMsg);
+			
+	    }
+	    else {
+		// Process result
+		unsigned sample_i      = (unsigned) (resultMsg[0]);
+		std::get<8>(e).at(sample_i)   = resultMsg[1];
+		std::get<9>(e).at(sample_i)       = resultMsg[2];
+		std::get<10>(e).at(sample_i) = (unsigned) resultMsg[3];
+
+		// Update progress bar
+		fancyProgressBar(std::get<3>(e).numberOfSamples);
+
+	    }
+		
+	}
+
     }
-};
+       
+    // Send abort message to all slaves
+    master.spread(abortMsg);
+	    
+}
+
+template <class Vertex, class Cage>
+void slaveFunction(const Vertex slave, const Vertex master, Cage &cage, Experiment e){
+    typedef typename Cage::Edge Edge;
+    
+    // Messages
+    std::array<float, 4> resultMsg;
+    std::array<int, 1>   sampleMsg;
+
+    float runtime = 0.0;
+
+    bool abort = false;
+    
+    while(!abort){
+
+	// Get edge to master
+	Edge outEdge = cage.getEdge(slave, master);
+
+	// Request new sampling point
+	cage.send(outEdge, requestMsg);
+
+	// Receive new sampling point or abort
+	cage.recv(outEdge.inverse(), sampleMsg);
+		    
+	if(sampleMsg.at(0) == abortTag){
+	    abort = true;
+	}
+	else {
+	    calcPhiAse ( std::get<0>(e),
+			 std::get<1>(e),
+			 std::get<2>(e),
+			 std::get<3>(e),
+			 std::get<4>(e),
+			 std::get<5>(e),
+			 std::get<6>(e),
+			 std::get<7>(e),
+			 std::get<8>(e),
+			 std::get<9>(e),
+			 std::get<10>(e),
+			 std::get<11>(e),
+			 sampleMsg.at(0),
+			 sampleMsg.at(0) + 1,
+			 runtime);
+			
+	    unsigned sample_i = sampleMsg[0];
+	    resultMsg = std::array<float, 4>{{ (float) sample_i,
+					       (float) std::get<8>(e).at(sample_i),
+					       (float) std::get<9>(e).at(sample_i),
+					       (float) std::get<10>(e).at(sample_i) }};
+
+	    // Send simulation results
+	    cage.send(outEdge, resultMsg);
+						
+	}
+	
+    }
+ 
+}
+
 
 float calcPhiAseGrayBat ( const unsigned minRaysPerSample,
 			  const unsigned maxRaysPerSample,
@@ -58,139 +164,62 @@ float calcPhiAseGrayBat ( const unsigned minRaysPerSample,
 			  std::vector<unsigned> &totalRays,
 			  const unsigned gpu_i){
 
+    // ONLY for TESTING
+    // should be replaced by some struct soon !!
+    Experiment e = std::make_tuple( minRaysPerSample,
+				    maxRaysPerSample,
+				    maxRepetitions,
+				    mesh,
+				    hSigmaA,
+				    hSigmaE,
+				    mseThreshold,
+				    useReflections,
+				    &hPhiAse,
+				    &mse,
+				    &totalRays,
+				    gpu_i );
+    
     /***************************************************************************
      * CAGE
      **************************************************************************/
-    // Configure
+    // Configuration
     typedef typename graybat::communicationPolicy::BMPI CP;
     typedef typename graybat::graphPolicy::BGL<>        GP;
     typedef typename graybat::Cage<CP, GP>              Cage;
     typedef typename Cage::Vertex                       Vertex;
-    typedef typename Cage::Edge                         Edge;
     
     // Init
     Cage cage(graybat::pattern::FullyConnected(2));
     cage.distribute(graybat::mapping::Roundrobin());
     const Vertex master = cage.getVertex(0);
-
     
     /***************************************************************************
      * ASE SIMULATION
      **************************************************************************/
-    // Const messages
-    const int abortTag   = -1;
-    const float requestTag = -1.0;
-    const std::array<float, 4> requestMsg{{requestTag, 0, 0, 0}};
-    const std::array<int, 1> abortMsg{{abortTag}};
-    
-    // Messages
-    std::array<float, 4> resultMsg;
-    std::array<int, 1>   sampleMsg;    
-
-    bool abort = false;
-    float runtime = 0.0;
-
     // Create sample indices
     std::vector<unsigned> samples(mesh.numberOfSamples);
-    std::generate(samples.begin(), samples.end(), Increment(0));
-    auto sample = samples.begin();
+    std::iota(samples.begin(), samples.end(), 0);
 
     // Determine phi ase for each sample
-    while(sample != samples.end() and !abort){
-    
-	for(Vertex v : cage.hostedVertices) {
+    for(Vertex vertex : cage.hostedVertices) {
 
-	    /*******************************************************************
-	     * SLAVES
-	     *******************************************************************/
-	    if(v != master){
-	    
-		for(Edge outEdge : cage.getOutEdges(v)){
-		    // Request new sampling point
-		    cage.send(outEdge, requestMsg);
-
-		    // Receive new sampling point or abort
-		    cage.recv(outEdge.inverse(), sampleMsg);
-		    
-		    if(sampleMsg.at(0) == abortTag){
-			abort = true;
-			break;
-		    }
-		    else {
-			calcPhiAse ( minRaysPerSample,
-				     maxRaysPerSample,
-				     maxRepetitions,
-				     mesh,
-				     hSigmaA,
-				     hSigmaE,
-				     mseThreshold,
-				     useReflections,
-				     hPhiAse,
-				     mse,
-				     totalRays,
-				     gpu_i,
-				     sampleMsg.at(0),
-				     sampleMsg.at(0) + 1,
-				     runtime);
-			
-			unsigned sample_i = sampleMsg[0];
-			resultMsg = std::array<float, 4>{{ (float) sample_i,
-							   (float) hPhiAse.at(sample_i),
-							   (float) mse.at(sample_i),
-							   (float) totalRays.at(sample_i) }};
-			// Send simulation results
-			cage.send(outEdge, resultMsg);
-						
-		    }
-		    
-		}
-
-	    }
-
-	    /*******************************************************************
-	     * MASTER
-	     *******************************************************************/
-	    if(v == master){
-
-		for(Edge inEdge : cage.getInEdges(v)){
-		    // Receive request or results
-		    cage.recv(inEdge, resultMsg);
-		
-		    if(resultMsg[0] == requestTag){
-			sampleMsg = std::array<int, 1>{{ (int) *sample++ }};
-			// Send next sample
-			cage.send(inEdge.inverse(), sampleMsg);
-			
-		    }
-		    else {
-			// Process result
-			unsigned sample_i      = (unsigned) (resultMsg[0]);
-			hPhiAse.at(sample_i)   = resultMsg[1];
-			mse.at(sample_i)       = resultMsg[2];
-			totalRays.at(sample_i) = (unsigned) resultMsg[3];
-
-			// Update progress bar
-			fancyProgressBar(mesh.numberOfSamples);
-
-		    }
-		
-		}
-	    
-	    }
+	/*******************************************************************
+	 * MASTER
+	 *******************************************************************/
+	if(vertex == master){
+	    masterFunction(vertex, samples, cage, e);
 
 	}
-	
-    }
-    
-    // Send abort message to all slaves
-    for(Vertex v : cage.hostedVertices) {
 
-    	if(v == master){
-    	    v.spread(abortMsg);
-    	}
-	
-    }
+	/*******************************************************************
+	 * SLAVES
+	 *******************************************************************/
+	if(vertex != master){
+	    slaveFunction(vertex, master, cage, e);
 
+	}	
+
+    }
     return 0;
     
 }
