@@ -109,20 +109,64 @@ int main(int argc, char **argv){
   std::vector<double> lambdaE;
 
   // Parse Commandline
-  parseCommandLine(argc, argv, &minRaysPerSample, &maxRaysPerSample, &inputPath,
-		   &writeVtk, &deviceMode, &parallelMode, &useReflections, &maxGpus, &minSampleRange, &maxSampleRange, &maxRepetitions, &outputPath, &mseThreshold, &lambdaResolution);
 
-  printCommandLine(minRaysPerSample, maxRaysPerSample, inputPath,
-		   writeVtk, compareLocation, deviceMode, parallelMode, useReflections, maxGpus, minSampleRange, maxSampleRange, maxRepetitions, outputPath, mseThreshold);
-  // Set/Test device to run experiment with
-  //
-  //TODO: this call takes a LOT of time (2-5s). Can this be avoided?
-  //TODO: maybe move this to a place where GPUs are actually needed (for_loops_clad doesn't even need GPUs!)
-  devices = getFreeDevices(maxGpus);
+  // Can the following block be moved into
+  // a parse function with a thin interface ?
+  {
+      parseCommandLine(argc,
+		       argv,
+		       &minRaysPerSample,
+		       &maxRaysPerSample,
+		       &inputPath,
+		       &writeVtk,
+		       &deviceMode,
+		       &parallelMode,
+		       &useReflections,
+		       &maxGpus,
+		       &minSampleRange,
+		       &maxSampleRange,
+		       &maxRepetitions,
+		       &outputPath,
+		       &mseThreshold,
+		       &lambdaResolution);
 
-  // sanity checks
-  if(checkParameterValidity(argc, minRaysPerSample, &maxRaysPerSample, inputPath, devices.size(), deviceMode, parallelMode, &maxGpus, minSampleRange, maxSampleRange, maxRepetitions, outputPath, &mseThreshold)) return 1;
+      printCommandLine(minRaysPerSample,
+		       maxRaysPerSample,
+		       inputPath,
+		       writeVtk,
+		       compareLocation,
+		       deviceMode,
+		       parallelMode,
+		       useReflections,
+		       maxGpus,
+		       minSampleRange,
+		       maxSampleRange,
+		       maxRepetitions,
+		       outputPath,
+		       mseThreshold);
+  
+      // Set/Test device to run experiment with
+      //
+      //TODO: this call takes a LOT of time (2-5s). Can this be avoided?
+      //TODO: maybe move this to a place where GPUs are actually needed (for_loops_clad doesn't even need GPUs!)
+      devices = getFreeDevices(maxGpus);
 
+      // sanity checks
+      if(checkParameterValidity(argc,
+				minRaysPerSample,
+				&maxRaysPerSample,
+				inputPath,
+				devices.size(),
+				deviceMode,
+				parallelMode,
+				&maxGpus,
+				minSampleRange,
+				maxSampleRange,
+				maxRepetitions,
+				outputPath,
+				&mseThreshold)) return 1;
+  }
+  
   dout(V_INFO) << "parameter validity was checked!" << std::endl;
 
   // Parse wavelengths from files
@@ -142,6 +186,7 @@ int main(int argc, char **argv){
   assert(sigmaAInterpolated.size() == sigmaEInterpolated.size());
 
   // Calc max sigmaA / sigmaE
+  // TODO replace by some algorithm
   double maxSigmaE = 0.0;
   double maxSigmaA = 0.0;
   for(unsigned i = 0; i < sigmaE.size(); ++i){
