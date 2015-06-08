@@ -1,5 +1,5 @@
 /**
- * Copyright 2013 Erik Zenker, Carlchristian Eckert, Marius Melzer
+ * Copyright 2015 Erik Zenker, Carlchristian Eckert, Marius Melzer
  *
  * This file is part of HASEonGPU
  *
@@ -21,7 +21,6 @@
 // STL
 #include <vector>
 #include <algorithm> /* std::iota */
-#include <tuple>     /* std::make_tuple, std::tuple, std::get */
 
 
 // HASEonGPU
@@ -33,9 +32,11 @@
 
 
 // GrayBat
-#include <graybat.hpp>
-#include <pattern/FullyConnected.hpp>
-#include <mapping/Roundrobin.hpp>
+#include <graybat/Cage.hpp>
+#include <graybat/communicationPolicy/BMPI.hpp>
+#include <graybat/graphPolicy/BGL.hpp>
+#include <graybat/pattern/FullyConnected.hpp>
+#include <graybat/mapping/Roundrobin.hpp>
 
 
 // Const messages
@@ -44,8 +45,48 @@ const float requestTag = -1.0;
 const std::array<float, 4> requestMsg{{requestTag, 0, 0, 0}};
 const std::array<int, 1> abortMsg{{abortTag}};
 
-// Only for TESTING
-typedef std::tuple<unsigned, unsigned, unsigned, Mesh&, std::vector<double>&, std::vector<double>&, double, bool, std::vector<float>&, std::vector<double>&, std::vector<unsigned>, unsigned> Experiment;
+struct Experiment {
+
+    Experiment( const unsigned minRaysPerSample,
+		const unsigned maxRaysPerSample,
+		const unsigned maxRepetitions,
+		const Mesh& mesh,
+		const std::vector<double>& hSigmaA,
+		const std::vector<double>& hSigmaE,
+		const double mseThreshold,
+		const bool useReflections,
+		std::vector<float> &hPhiAse,
+		std::vector<double> &mse,
+		std::vector<unsigned> &totalRays,
+		const unsigned gpu_i) :
+	minRaysPerSample(minRaysPerSample),
+	maxRaysPerSample(maxRaysPerSample),
+	maxRepetitions(maxRepetitions),
+	mesh(mesh),
+	hSigmaA(hSigmaA),
+	hSigmaE(hSigmaE),
+	mseThreshold(mseThreshold),
+	useReflections(useReflections),
+	hPhiAse(hPhiAse),
+	mse(mse),
+        totalRays(totalRays),
+	gpu_i(gpu_i) { }
+	
+
+    const unsigned minRaysPerSample;
+    const unsigned maxRaysPerSample;
+    const unsigned maxRepetitions;
+    const Mesh& mesh;
+    const std::vector<double>& hSigmaA;
+    const std::vector<double>& hSigmaE;
+    const double mseThreshold;
+    const bool useReflections;
+    std::vector<float> &hPhiAse;
+    std::vector<double> &mse;
+    std::vector<unsigned> &totalRays;
+    const unsigned gpu_i;
+
+};
 
     
 
@@ -74,12 +115,12 @@ void masterFunction(Vertex master, const std::vector<unsigned> samples, Cage &ca
 	    else {
 		// Process result
 		unsigned sample_i      = (unsigned) (resultMsg[0]);
-		std::get<8>(e).at(sample_i)   = resultMsg[1];
-		std::get<9>(e).at(sample_i)       = resultMsg[2];
-		std::get<10>(e).at(sample_i) = (unsigned) resultMsg[3];
+		e.hPhiAse.at(sample_i)   = resultMsg[1];
+		e.mse.at(sample_i)       = resultMsg[2];
+		e.totalRays.at(sample_i) = (unsigned) resultMsg[3];
 
 		// Update progress bar
-		fancyProgressBar(std::get<3>(e).numberOfSamples);
+		fancyProgressBar(e.mesh.numberOfSamples);
 
 	    }
 		
@@ -119,27 +160,27 @@ void slaveFunction(const Vertex slave, const Vertex master, Cage &cage, Experime
 	    abort = true;
 	}
 	else {
-	    calcPhiAse ( std::get<0>(e),
-			 std::get<1>(e),
-			 std::get<2>(e),
-			 std::get<3>(e),
-			 std::get<4>(e),
-			 std::get<5>(e),
-			 std::get<6>(e),
-			 std::get<7>(e),
-			 std::get<8>(e),
-			 std::get<9>(e),
-			 std::get<10>(e),
-			 std::get<11>(e),
+	    calcPhiAse ( e.minRaysPerSample,
+			 e.maxRaysPerSample,
+			 e.maxRepetitions,
+			 e.mesh,
+			 e.hSigmaA,
+			 e.hSigmaE,
+			 e.mseThreshold,
+			 e.useReflections,
+			 e.hPhiAse,
+			 e.mse,
+			 e.totalRays,
+			 e.gpu_i,
 			 sampleMsg.at(0),
 			 sampleMsg.at(0) + 1,
 			 runtime);
 			
 	    unsigned sample_i = sampleMsg[0];
 	    resultMsg = std::array<float, 4>{{ (float) sample_i,
-					       (float) std::get<8>(e).at(sample_i),
-					       (float) std::get<9>(e).at(sample_i),
-					       (float) std::get<10>(e).at(sample_i) }};
+					       (float) e.hPhiAse.at(sample_i),
+					       (float) e.mse.at(sample_i),
+					       (float) e.totalRays.at(sample_i) }};
 
 	    // Send simulation results
 	    cage.send(outEdge, resultMsg);
@@ -165,19 +206,18 @@ float calcPhiAseGrayBat ( const unsigned minRaysPerSample,
 			  const unsigned gpu_i){
 
     // ONLY for TESTING
-    // should be replaced by some struct soon !!
-    Experiment e = std::make_tuple( minRaysPerSample,
-				    maxRaysPerSample,
-				    maxRepetitions,
-				    mesh,
-				    hSigmaA,
-				    hSigmaE,
-				    mseThreshold,
-				    useReflections,
-				    &hPhiAse,
-				    &mse,
-				    &totalRays,
-				    gpu_i );
+    Experiment experiment( minRaysPerSample,
+		  maxRaysPerSample,
+		  maxRepetitions,
+		  mesh,
+		  hSigmaA,
+		  hSigmaE,
+		  mseThreshold,
+		  useReflections,
+		  hPhiAse,
+		  mse,
+		  totalRays,
+		  gpu_i );
     
     /***************************************************************************
      * CAGE
@@ -207,7 +247,7 @@ float calcPhiAseGrayBat ( const unsigned minRaysPerSample,
 	 * MASTER
 	 *******************************************************************/
 	if(vertex == master){
-	    masterFunction(vertex, samples, cage, e);
+	    masterFunction(vertex, samples, cage, experiment);
 
 	}
 
@@ -215,11 +255,12 @@ float calcPhiAseGrayBat ( const unsigned minRaysPerSample,
 	 * SLAVES
 	 *******************************************************************/
 	if(vertex != master){
-	    slaveFunction(vertex, master, cage, e);
+	    slaveFunction(vertex, master, cage, experiment);
 
 	}	
 
     }
+    
     return 0;
     
 }
