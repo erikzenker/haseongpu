@@ -1,5 +1,11 @@
 #pragma once
 
+struct Option {
+
+    
+    
+}
+
 struct Experiment {
 
     Experiment( const unsigned minRaysPerSample,
