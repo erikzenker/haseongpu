@@ -42,9 +42,9 @@
 namespace fs = boost::filesystem;
 
 // User header files
-#include <calc_phi_ase.hpp>
-#include <calc_phi_ase_threaded.hpp>
-#include <calc_phi_ase_mpi.hpp>
+//#include <calc_phi_ase.hpp>
+//#include <calc_phi_ase_threaded.hpp>
+//#include <calc_phi_ase_mpi.hpp>
 #include <calc_phi_ase_graybat.hpp>
 #include <parser.hpp> /* DeviceMode, ParallelMode */
 #include <write_to_vtk.hpp>
@@ -78,7 +78,15 @@ double calcDndtAse(const Mesh& mesh, const double sigmaA, const double sigmaE, c
 
 int main(int argc, char **argv){
 
+    // Statistics data
+    float runtime = 0.0;
+    float maxMSE = 0;
+    float  avgMSE = 0;
+    unsigned highMSE = 0;
+    std::string runmode("");
+    time_t starttime   = time(0);
 
+    // Simulation data
     ExperimentParameters experiment;
     ComputeParameters    compute;
     Result               result;
@@ -90,6 +98,9 @@ int main(int argc, char **argv){
     // std::vector<pthread_t> threadIds(maxGpus, 0);
     // std::vector<float> runtimes(maxGpus, 0);
 
+    /***************************************************************************
+     * COMPUTATIONS
+     **************************************************************************/    
     switch(compute.deviceMode){
     case NO_DEVICE_MODE:
 	dout(V_ERROR) << "No valid device-mode!" << std::endl;
@@ -175,7 +186,7 @@ int main(int argc, char **argv){
 			       compute,
 			       mesh,
 			       result );
-	    //runmode = "GPU mode GrayBat";
+	    runmode = "GPU mode GrayBat";
 	    break;
 
         default:
@@ -186,77 +197,121 @@ int main(int argc, char **argv){
     }
 
 
-    // // Print Solution
-    // if(verbosity & V_DEBUG){
-    //   for(unsigned sample_i = 0; sample_i < meshs[0].numberOfSamples; ++sample_i){
-    //     dndtAse.at(sample_i) = calcDndtAse(meshs[0], maxSigmaA, maxSigmaE, phiAse.at(sample_i), sample_i);
-    //     if(sample_i <=10)
-    // 	dout(V_DEBUG) << "Dndt ASE[" << sample_i << "]: " << dndtAse.at(sample_i) << " " << mse.at(sample_i) << std::endl;
-    //   }
-    //   for(unsigned sample_i = 0; sample_i < meshs[0].numberOfSamples; ++sample_i){
-    //     dout(V_DEBUG) << "PHI ASE[" << sample_i << "]: " << phiAse.at(sample_i) << " " << mse.at(sample_i) <<std::endl;
-    //     if(sample_i >= 10) break;
-    //   }
-    // }
 
-    // // Write experiment data
-    // // output folder has to be the same as TMP_FOLDER in the calling MatLab script
-    // writeMatlabOutput(outputPath,
-    // 		    phiAse,
-    // 		    totalRays,
-    // 		    mse,
-    // 		    meshs[0].numberOfSamples,
-    // 		    meshs[0].numberOfLevels);
+    /***************************************************************************
+     * PRINT SOLUTION
+     **************************************************************************/    
+    if(verbosity & V_DEBUG){
+	for(unsigned sample_i = 0; sample_i < mesh.numberOfSamples; ++sample_i){
+	    result.dndtAse.at(sample_i) = calcDndtAse(mesh,
+						      experiment.maxSigmaA,
+						      experiment.maxSigmaE,
+						      result.phiAse.at(sample_i), sample_i);
+	    if(sample_i <=10)
+		dout(V_DEBUG) << "Dndt ASE[" << sample_i << "]: " << result.dndtAse.at(sample_i) << " " << result.mse.at(sample_i) << std::endl;
+	}
+	for(unsigned sample_i = 0; sample_i < mesh.numberOfSamples; ++sample_i){
+	    dout(V_DEBUG) << "PHI ASE[" << sample_i << "]: " << result.phiAse.at(sample_i) << " " << result.mse.at(sample_i) <<std::endl;
+	    if(sample_i >= 10) break;
+	}
+    }
 
-    // // Write solution to vtk files
-    // if(writeVtk){
-    //   std::vector<double> tmpPhiAse(phiAse.begin(), phiAse.end());
-    //   std::vector<double> tmpTotalRays(totalRays.begin(), totalRays.end());
 
-    //   writePointsToVtk(meshs[0], dndtAse, outputPath /= "vtk/dndt", minRaysPerSample, maxRaysPerSample, mseThreshold, useReflections, runtime);
-    //   writePointsToVtk(meshs[0], tmpPhiAse, outputPath /= "vtk/phiase", minRaysPerSample, maxRaysPerSample, mseThreshold, useReflections, runtime);
-    //   writePointsToVtk(meshs[0], mse, outputPath /= "vtk/mse", minRaysPerSample, maxRaysPerSample, mseThreshold, useReflections, runtime);
-    //   writePointsToVtk(meshs[0], tmpTotalRays, outputPath /= "vtk/total_rays", minRaysPerSample, maxRaysPerSample, mseThreshold, useReflections, runtime);
-    // }
+    /***************************************************************************
+     * WRITE MATLAB OUTPUT
+     **************************************************************************/
+    // output folder has to be the same as TMP_FOLDER in the calling MatLab script
+    writeMatlabOutput(compute.outputPath,
+		      result.phiAse,
+		      result.totalRays,
+		      result.mse,
+		      mesh.numberOfSamples,
+		      mesh.numberOfLevels);
 
-    // // Print statistics
-    // if(verbosity & V_STAT){
-    //   for(std::vector<double>::iterator it = mse.begin(); it != mse.end(); ++it){
-    //     maxMSE = max(maxMSE, *it);
-    //     avgMSE += *it;
-    //     if(*it >= mseThreshold)
-    //       highMSE++;
-    //   }
-    //   avgMSE /= mse.size();
+    /***************************************************************************
+     * WRITE VTK FILES
+     **************************************************************************/
+    if(compute.writeVtk){
+      std::vector<double> tmpPhiAse(result.phiAse.begin(), result.phiAse.end());
+      std::vector<double> tmpTotalRays(result.totalRays.begin(), result.totalRays.end());
 
-    //   try{ std::cout.imbue(std::locale("")); }
-    //   catch(std::runtime_error e){}
+      writePointsToVtk( mesh,
+			result.dndtAse,
+			compute.outputPath /= "vtk/dndt",
+			experiment.minRaysPerSample,
+			experiment.maxRaysPerSample,
+			experiment.mseThreshold,
+			experiment.useReflections,
+			runtime );
+      
+      writePointsToVtk( mesh,
+			tmpPhiAse,
+			compute.outputPath /= "vtk/phiase",
+			experiment.minRaysPerSample,
+			experiment.maxRaysPerSample,
+			experiment.mseThreshold,
+			experiment.useReflections,
+			runtime );
+      
+      writePointsToVtk( mesh,
+			result.mse,
+			compute.outputPath /= "vtk/mse",
+			experiment.minRaysPerSample,
+			experiment.maxRaysPerSample,
+			experiment.mseThreshold,
+			experiment.useReflections,
+			runtime );
+      
+      writePointsToVtk( mesh,
+			tmpTotalRays,
+			compute.outputPath /= "vtk/total_rays",
+			experiment.minRaysPerSample,
+			experiment.maxRaysPerSample,
+			experiment.mseThreshold,
+			experiment.useReflections,
+			runtime );
+    }
 
-    //   dout(V_STAT | V_NOLABEL) << std::endl;
-    //   dout(V_STAT) << "=== Statistics ===" << std::endl;
-    //   dout(V_STAT) << "Runmode           : " << runmode << std::endl;
-    //   dout(V_STAT) << "Prisms            : " << (int) meshs[0].numberOfPrisms << std::endl;
-    //   dout(V_STAT) << "Samples           : " << (int) dndtAse.size() << std::endl;
-    //   dout(V_STAT) << "RaysPerSample     : " << minRaysPerSample;
-    //   if(maxRaysPerSample > minRaysPerSample) { dout(V_STAT | V_NOLABEL) << " - " << maxRaysPerSample << " (adaptive)"; }
-    //   dout(V_STAT | V_NOLABEL) << std::endl;
-    //   dout(V_STAT) << "sum(totalRays)    : " << std::accumulate(totalRays.begin(), totalRays.end(), 0.) << std::endl;
-    //   dout(V_STAT) << "MSE threshold     : " << mseThreshold << std::endl;
-    //   dout(V_STAT) << "Wavelength        : " << sigmaA.size() << std::endl;
-    //   dout(V_STAT) << "int. Wavelength   : " << sigmaAInterpolated.size() << std::endl;
-    //   dout(V_STAT) << "max. MSE          : " << maxMSE << std::endl;
-    //   dout(V_STAT) << "avg. MSE          : " << avgMSE << std::endl;
-    //   dout(V_STAT) << "too high MSE      : " << highMSE << std::endl;
-    //   dout(V_STAT) << "Nr of GPUs        : " << usedGpus << std::endl;
-    //   dout(V_STAT) << "Runtime           : " << difftime(time(0),starttime) << "s" << std::endl;
-    //   dout(V_STAT) << std::endl;
-    //   if(maxRaysPerSample > minRaysPerSample){
-    //     dout(V_STAT) << "=== Sampling resolution as Histogram ===" << std::endl;
-    //     ray_histogram(totalRays,maxRaysPerSample,mseThreshold,mse);
-    //   }
-    //   dout(V_STAT) << std::endl;
+    /***************************************************************************
+     * PRINT STATISTICS
+     **************************************************************************/
+    if(verbosity & V_STAT){
+      for(std::vector<double>::iterator it = result.mse.begin(); it != result.mse.end(); ++it){
+	  maxMSE = max(maxMSE, *it);
+	  avgMSE += *it;
+        if(*it >= experiment.mseThreshold)
+          highMSE++;
+      }
+      avgMSE /= result.mse.size();
 
-    // }
+      try{ std::cout.imbue(std::locale("")); }
+      catch(std::runtime_error e){}
+
+      dout(V_STAT | V_NOLABEL) << std::endl;
+      dout(V_STAT) << "=== Statistics ===" << std::endl;
+      dout(V_STAT) << "Runmode           : " << runmode << std::endl;
+      dout(V_STAT) << "Prisms            : " << (int) mesh.numberOfPrisms << std::endl;
+      dout(V_STAT) << "Samples           : " << (int) result.dndtAse.size() << std::endl;
+      dout(V_STAT) << "RaysPerSample     : " << experiment.minRaysPerSample;
+      if(experiment.maxRaysPerSample > experiment.minRaysPerSample) { dout(V_STAT | V_NOLABEL) << " - " << experiment.maxRaysPerSample << " (adaptive)"; }
+      dout(V_STAT | V_NOLABEL) << std::endl;
+      dout(V_STAT) << "sum(totalRays)    : " << std::accumulate(result.totalRays.begin(), result.totalRays.end(), 0.) << std::endl;
+      dout(V_STAT) << "MSE threshold     : " << experiment.mseThreshold << std::endl;
+      //dout(V_STAT) << "Wavelength        : " << experiment.sigmaA.size() << std::endl;
+      dout(V_STAT) << "int. Wavelength   : " << experiment.sigmaA.size() << std::endl;
+      dout(V_STAT) << "max. MSE          : " << maxMSE << std::endl;
+      dout(V_STAT) << "avg. MSE          : " << avgMSE << std::endl;
+      dout(V_STAT) << "too high MSE      : " << highMSE << std::endl;
+      //dout(V_STAT) << "Nr of GPUs        : " << usedGpus << std::endl;
+      dout(V_STAT) << "Runtime           : " << difftime(time(0), starttime) << "s" << std::endl;
+      dout(V_STAT) << std::endl;
+      if(experiment.maxRaysPerSample > experiment.minRaysPerSample){
+        dout(V_STAT) << "=== Sampling resolution as Histogram ===" << std::endl;
+        ray_histogram(result.totalRays, experiment.maxRaysPerSample, experiment.mseThreshold, result.mse);
+      }
+      dout(V_STAT) << std::endl;
+
+    }
   
     return 0;
 

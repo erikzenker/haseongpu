@@ -53,12 +53,7 @@ int parse( const int argc,
     unsigned maxRaysPerSample = 0;
     unsigned maxRepetitions = 4;
     unsigned lambdaResolution = 0;
-    float maxMSE = 0;
-    float  avgMSE = 0;
-    unsigned highMSE = 0;
-    std::string runmode("");
     std::string compareLocation("");
-    float runtime = 0.0;
     bool writeVtk = false;
     bool useReflections = false;
     std::vector<unsigned> devices; 
@@ -67,9 +62,7 @@ int parse( const int argc,
     ParallelMode parallelMode = NO_PARALLEL_MODE;
     int minSampleRange = -1;
     int maxSampleRange = -1;
-    time_t starttime   = time(0);
     unsigned usedGpus  = 0;
-
     fs::path inputPath;
     fs::path outputPath;
     double mseThreshold = 0;
@@ -190,17 +183,23 @@ int parse( const int argc,
 					maxRaysPerSample,
 					sigmaAInterpolated,
 					sigmaEInterpolated,
+					maxSigmaA,
+					maxSigmaE,
 					mseThreshold,
 					useReflections );
 
     compute = ComputeParameters ( maxRepetitions,
 				  devices.at(0),
 				  deviceMode,
-				  parallelMode);
+				  parallelMode,
+				  writeVtk,
+				  inputPath,
+				  outputPath);
 
     result = Result( phiAse, 
 		     mse, 
-		     totalRays );
+		     totalRays,
+		     dndtAse );
 
     mesh = meshs[0];
 

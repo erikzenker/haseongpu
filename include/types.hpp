@@ -1,5 +1,9 @@
 #pragma once
 
+#include <boost/filesystem.hpp> /* fs::path */
+namespace fs = boost::filesystem;
+
+
 enum DeviceMode { NO_DEVICE_MODE, GPU_DEVICE_MODE, CPU_DEVICE_MODE};
 enum ParallelMode { NO_PARALLEL_MODE, THREADED_PARALLEL_MODE, MPI_PARALLEL_MODE, GRAYBAT_PARALLEL_MODE};
 
@@ -10,16 +14,25 @@ struct ComputeParameters {
     ComputeParameters(  unsigned maxRepetitions,
 		        unsigned gpu_i,
 			DeviceMode deviceMode,
-			ParallelMode parallelMode) :
+			ParallelMode parallelMode,
+			bool writeVtk,
+			fs::path inputPath,
+			fs::path outputPath) :
 	maxRepetitions(maxRepetitions),
 	gpu_i(gpu_i),
 	deviceMode(deviceMode),
-	parallelMode(parallelMode){ }
+	parallelMode(parallelMode),
+	writeVtk(writeVtk),
+	inputPath(inputPath),
+	outputPath(outputPath){ }
 
     unsigned maxRepetitions;
     unsigned gpu_i;
     DeviceMode deviceMode;
     ParallelMode parallelMode;
+    bool writeVtk;
+    fs::path inputPath;
+    fs::path outputPath;
     
 };
 
@@ -27,17 +40,20 @@ struct Result {
 
     Result(){}
     
-    Result( std::vector<float> hPhiAse,
+    Result( std::vector<float> phiAse,
 	    std::vector<double> mse,
-	    std::vector<unsigned> totalRays) :
-	hPhiAse(hPhiAse),
+	    std::vector<unsigned> totalRays,
+	    std::vector<double>   dndtAse) :
+	phiAse(phiAse),
 	mse(mse),
-	totalRays(totalRays) {}
+	totalRays(totalRays),
+	dndtAse(dndtAse){}
   
 
-    std::vector<float> hPhiAse;
+    std::vector<float> phiAse;
     std::vector<double> mse;
     std::vector<unsigned> totalRays;
+    std::vector<double>   dndtAse;
 
 
 
@@ -48,24 +64,30 @@ struct ExperimentParameters {
     ExperimentParameters() {}
     
     ExperimentParameters(  unsigned minRaysPerSample,
-		 unsigned maxRaysPerSample,
-		 std::vector<double> hSigmaA,
-		 std::vector<double> hSigmaE,
-		 double mseThreshold,
-		 bool useReflections) :
+			   unsigned maxRaysPerSample,
+			   std::vector<double> sigmaA,
+			   std::vector<double> sigmaE,
+			   double maxSigmaA,
+			   double maxSigmaE,
+			   double mseThreshold,
+			   bool useReflections) :
 	minRaysPerSample(minRaysPerSample),
 	maxRaysPerSample(maxRaysPerSample),
-	hSigmaA(hSigmaA),
-	hSigmaE(hSigmaE),
+	sigmaA(sigmaA),
+	sigmaE(sigmaE),
+	maxSigmaA(maxSigmaA),
+	maxSigmaE(maxSigmaE),
 	mseThreshold(mseThreshold),
 	useReflections(useReflections) { }
 
-     unsigned minRaysPerSample;
-     unsigned maxRaysPerSample;
-     std::vector<double> hSigmaA;
-     std::vector<double> hSigmaE;
-     double mseThreshold;
-     bool useReflections;
+    unsigned minRaysPerSample;
+    unsigned maxRaysPerSample;
+    std::vector<double> sigmaA;
+    std::vector<double> sigmaE;
+    double maxSigmaA;
+    double maxSigmaE;
+    double mseThreshold;
+    bool useReflections;
 
 
 };

@@ -24,7 +24,6 @@
 
 
 // HASEonGPU
-#include <calc_phi_ase_mpi.hpp>
 #include <calc_phi_ase.hpp>
 #include <mesh.hpp>
 #include <logging.hpp>
@@ -75,7 +74,7 @@ void masterFunction(Vertex master,
 	    else {
 		// Process result
 		unsigned sample_i      = (unsigned) (resultMsg[0]);
-		r.hPhiAse.at(sample_i)   = resultMsg[1];
+		r.phiAse.at(sample_i)   = resultMsg[1];
 		r.mse.at(sample_i)       = resultMsg[2];
 		r.totalRays.at(sample_i) = (unsigned) resultMsg[3];
 
@@ -126,25 +125,17 @@ void slaveFunction(const Vertex slave,
 	    abort = true;
 	}
 	else {
-	    calcPhiAse ( e.minRaysPerSample,
-			 e.maxRaysPerSample,
-			 c.maxRepetitions,
+	    calcPhiAse ( e,
+			 c,
 			 mesh,
-			 e.hSigmaA,
-			 e.hSigmaE,
-			 e.mseThreshold,
-			 e.useReflections,
-			 r.hPhiAse,
-			 r.mse,
-			 r.totalRays,
-			 c.gpu_i,
+			 r,
 			 sampleMsg.at(0),
 			 sampleMsg.at(0) + 1,
 			 runtime);
 			
 	    unsigned sample_i = sampleMsg[0];
 	    resultMsg = std::array<float, 4>{{ (float) sample_i,
-					       (float) r.hPhiAse.at(sample_i),
+					       (float) r.phiAse.at(sample_i),
 					       (float) r.mse.at(sample_i),
 					       (float) r.totalRays.at(sample_i) }};
 
