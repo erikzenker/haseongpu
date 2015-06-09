@@ -1,51 +1,57 @@
 #pragma once
 
-struct Option {
+struct ComputeParameters {
 
+    ComputeParameters( const unsigned maxRepetitions,
+		       const unsigned gpu_i) :
+	maxRepetitions(maxRepetitions),
+	gpu_i(gpu_i) { }
+
+    const unsigned maxRepetitions;
+    const unsigned gpu_i;
     
-    
-}
+};
 
-struct Experiment {
+struct Result {
 
-    Experiment( const unsigned minRaysPerSample,
+    Result( std::vector<float> &hPhiAse,
+	    std::vector<double> &mse,
+	    std::vector<unsigned> &totalRays) :
+	hPhiAse(hPhiAse),
+	mse(mse),
+	totalRays(totalRays) {}
+  
+
+    std::vector<float> &hPhiAse;
+    std::vector<double> &mse;
+    std::vector<unsigned> &totalRays;
+
+
+
+};
+
+struct ExperimentParameters {
+
+    ExperimentParameters( const unsigned minRaysPerSample,
 		const unsigned maxRaysPerSample,
-		const unsigned maxRepetitions,
-		const Mesh& mesh,
 		const std::vector<double>& hSigmaA,
 		const std::vector<double>& hSigmaE,
 		const double mseThreshold,
-		const bool useReflections,
-		std::vector<float> &hPhiAse,
-		std::vector<double> &mse,
-		std::vector<unsigned> &totalRays,
-		const unsigned gpu_i) :
+		const bool useReflections) :
 	minRaysPerSample(minRaysPerSample),
 	maxRaysPerSample(maxRaysPerSample),
-	maxRepetitions(maxRepetitions),
-	mesh(mesh),
 	hSigmaA(hSigmaA),
 	hSigmaE(hSigmaE),
 	mseThreshold(mseThreshold),
-	useReflections(useReflections),
-	hPhiAse(hPhiAse),
-	mse(mse),
-        totalRays(totalRays),
-	gpu_i(gpu_i) { }
-	
+	useReflections(useReflections) { }
 
     const unsigned minRaysPerSample;
     const unsigned maxRaysPerSample;
-    const unsigned maxRepetitions;
-    const Mesh& mesh;
     const std::vector<double>& hSigmaA;
     const std::vector<double>& hSigmaE;
     const double mseThreshold;
     const bool useReflections;
-    std::vector<float> &hPhiAse;
-    std::vector<double> &mse;
-    std::vector<unsigned> &totalRays;
-    const unsigned gpu_i;
+
 
 };
 

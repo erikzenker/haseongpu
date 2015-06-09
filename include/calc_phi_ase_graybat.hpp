@@ -59,16 +59,10 @@
  *
  * @return number of used compute nodes
  */
-float calcPhiAseGrayBat ( const unsigned minRaysPerSample,
-			  const unsigned maxRaysPerSample,
-			  const unsigned maxRepetitions,
-			  const Mesh& mesh,
-			  const std::vector<double>& hSigmaA,
-			  const std::vector<double>& hSigmaE,
-			  const double mseThreshold,
-			  const bool useReflections,
-			  std::vector<float> &hPhiAse,
-			  std::vector<double> &hMse,
-			  std::vector<unsigned> &hTotalRays,
-			  const unsigned gpu_i);
 
+#include <types.hpp>
+
+float calcPhiAseGrayBat ( const ExperimentParameters experiment,
+			  const ComputeParameters compute,
+			  const Mesh& mesh,
+			  Result result );

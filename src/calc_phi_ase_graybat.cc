@@ -46,7 +46,12 @@ const std::array<float, 4> requestMsg{{requestTag, 0, 0, 0}};
 const std::array<int, 1> abortMsg{{abortTag}};
 
 template <class Vertex, class Cage>
-void masterFunction(Vertex master, const std::vector<unsigned> samples, Cage &cage, Experiment e){
+void masterFunction(Vertex master,
+		    const std::vector<unsigned> samples,
+		    Cage &cage,
+		    const Mesh& mesh,
+		    Result r ){
+
     typedef typename Cage::Edge Edge;
     
     // Messages
@@ -70,12 +75,12 @@ void masterFunction(Vertex master, const std::vector<unsigned> samples, Cage &ca
 	    else {
 		// Process result
 		unsigned sample_i      = (unsigned) (resultMsg[0]);
-		e.hPhiAse.at(sample_i)   = resultMsg[1];
-		e.mse.at(sample_i)       = resultMsg[2];
-		e.totalRays.at(sample_i) = (unsigned) resultMsg[3];
+		r.hPhiAse.at(sample_i)   = resultMsg[1];
+		r.mse.at(sample_i)       = resultMsg[2];
+		r.totalRays.at(sample_i) = (unsigned) resultMsg[3];
 
 		// Update progress bar
-		fancyProgressBar(e.mesh.numberOfSamples);
+		fancyProgressBar(mesh.numberOfSamples);
 
 	    }
 		
@@ -89,7 +94,13 @@ void masterFunction(Vertex master, const std::vector<unsigned> samples, Cage &ca
 }
 
 template <class Vertex, class Cage>
-void slaveFunction(const Vertex slave, const Vertex master, Cage &cage, Experiment e){
+void slaveFunction(const Vertex slave,
+		   const Vertex master,
+		   Cage &cage,
+		   const ExperimentParameters e,
+		   const ComputeParameters c,
+		   const Mesh& mesh,
+		   Result r ){
     typedef typename Cage::Edge Edge;
     
     // Messages
@@ -117,25 +128,25 @@ void slaveFunction(const Vertex slave, const Vertex master, Cage &cage, Experime
 	else {
 	    calcPhiAse ( e.minRaysPerSample,
 			 e.maxRaysPerSample,
-			 e.maxRepetitions,
-			 e.mesh,
+			 c.maxRepetitions,
+			 mesh,
 			 e.hSigmaA,
 			 e.hSigmaE,
 			 e.mseThreshold,
 			 e.useReflections,
-			 e.hPhiAse,
-			 e.mse,
-			 e.totalRays,
-			 e.gpu_i,
+			 r.hPhiAse,
+			 r.mse,
+			 r.totalRays,
+			 c.gpu_i,
 			 sampleMsg.at(0),
 			 sampleMsg.at(0) + 1,
 			 runtime);
 			
 	    unsigned sample_i = sampleMsg[0];
 	    resultMsg = std::array<float, 4>{{ (float) sample_i,
-					       (float) e.hPhiAse.at(sample_i),
-					       (float) e.mse.at(sample_i),
-					       (float) e.totalRays.at(sample_i) }};
+					       (float) r.hPhiAse.at(sample_i),
+					       (float) r.mse.at(sample_i),
+					       (float) r.totalRays.at(sample_i) }};
 
 	    // Send simulation results
 	    cage.send(outEdge, resultMsg);
@@ -147,33 +158,12 @@ void slaveFunction(const Vertex slave, const Vertex master, Cage &cage, Experime
 }
 
 
-float calcPhiAseGrayBat ( const unsigned minRaysPerSample,
-			  const unsigned maxRaysPerSample,
-			  const unsigned maxRepetitions,
+float calcPhiAseGrayBat ( const ExperimentParameters experiment,
+			  const ComputeParameters compute,
 			  const Mesh& mesh,
-			  const std::vector<double>& hSigmaA,
-			  const std::vector<double>& hSigmaE,
-			  const double mseThreshold,
-			  const bool useReflections,
-			  std::vector<float> &hPhiAse,
-			  std::vector<double> &mse,
-			  std::vector<unsigned> &totalRays,
-			  const unsigned gpu_i){
+			  Result result ){
 
-    // ONLY for TESTING
-    Experiment experiment( minRaysPerSample,
-		  maxRaysPerSample,
-		  maxRepetitions,
-		  mesh,
-		  hSigmaA,
-		  hSigmaE,
-		  mseThreshold,
-		  useReflections,
-		  hPhiAse,
-		  mse,
-		  totalRays,
-		  gpu_i );
-    
+
     /***************************************************************************
      * CAGE
      **************************************************************************/
@@ -202,7 +192,7 @@ float calcPhiAseGrayBat ( const unsigned minRaysPerSample,
 	 * MASTER
 	 *******************************************************************/
 	if(vertex == master){
-	    masterFunction(vertex, samples, cage, experiment);
+	    masterFunction(vertex, samples, cage, mesh, result);
 
 	}
 
@@ -210,7 +200,7 @@ float calcPhiAseGrayBat ( const unsigned minRaysPerSample,
 	 * SLAVES
 	 *******************************************************************/
 	if(vertex != master){
-	    slaveFunction(vertex, master, cage, experiment);
+	    slaveFunction(vertex, master, cage, experiment, compute, mesh, result);
 
 	}	
 

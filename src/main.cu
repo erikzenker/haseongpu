@@ -56,6 +56,7 @@ namespace fs = boost::filesystem;
 #include <logging.hpp>
 #include <ray_histogram.hpp>
 #include <interpolation.hpp> /* interpolateWavelength*/
+#include <types.hpp>
 
 // default without V_DEBUG
 unsigned verbosity = V_ERROR | V_INFO | V_WARNING | V_PROGRESS | V_STAT; // extern through logging.hpp
@@ -120,16 +121,16 @@ int main(int argc, char **argv){
 		   argv,
 		   &minRaysPerSample, // exp
 		   &maxRaysPerSample, // exp
-		   &inputPath, // opt
-		   &writeVtk,  // opt
-		   &deviceMode,// opt
-		   &parallelMode, // opt
+		   &inputPath, // opt -
+		   &writeVtk,  // opt -
+		   &deviceMode,// opt -
+		   &parallelMode, // opt -
 		   &useReflections, // exp
-		   &maxGpus, // opt
-		   &minSampleRange, // opt
-		   &maxSampleRange, // opt
+		   &maxGpus, // opt -
+		   &minSampleRange, // opt -
+		   &maxSampleRange, // opt -
 		   &maxRepetitions, // exp
-		   &outputPath, // opt
+		   &outputPath, // opt -
 		   &mseThreshold, // exp
 		   &lambdaResolution); // opt
 
@@ -213,7 +214,22 @@ int main(int argc, char **argv){
   //
   // END PARSE BLOCK
   //
-      
+
+  ExperimentParameters experiment ( minRaysPerSample,
+				    maxRaysPerSample,
+				    sigmaAInterpolated,
+				    sigmaEInterpolated,
+				    mseThreshold,
+				    useReflections );
+
+  ComputeParameters compute( maxRepetitions,
+			     devices.at(0) );
+
+  Result result ( phiAse, 
+		  mse, 
+		  totalRays );
+
+  
   // Run Experiment
   std::vector<pthread_t> threadIds(maxGpus, 0);
   std::vector<float> runtimes(maxGpus, 0);
@@ -296,19 +312,10 @@ int main(int argc, char **argv){
           runmode = "GPU mode MPI";
           break;
       case GRAYBAT_PARALLEL_MODE:
-          usedGpus = calcPhiAseGrayBat( minRaysPerSample,
-					maxRaysPerSample,
-					maxRepetitions,
+          usedGpus = calcPhiAseGrayBat( experiment,
+					compute,
 					meshs[0],
-					sigmaAInterpolated,
-					sigmaEInterpolated,
-					mseThreshold,
-					useReflections,
-					phiAse,
-					mse,
-					totalRays,
-					devices.at(0)
-					);
+					result );
           runmode = "GPU mode GrayBat";
           break;
 
