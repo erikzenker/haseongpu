@@ -28,6 +28,8 @@
 #include <logging.hpp> 
 #include <mesh.hpp>
 #include <parser.hpp>
+#include <interpolation.hpp> /* interpolateWavelength*/
+
 
 // includes for commandline parsing
 #include <boost/program_options.hpp>
@@ -37,6 +39,175 @@
 
 #include <boost/filesystem.hpp> /* fs::path */
 namespace fs = boost::filesystem;
+
+
+int parse( const int argc,
+	    char** argv,
+	    ExperimentParameters& experiment,
+	    ComputeParameters& compute,
+	    Mesh& mesh,
+	    Result& result) {
+
+
+    unsigned minRaysPerSample = 0;
+    unsigned maxRaysPerSample = 0;
+    unsigned maxRepetitions = 4;
+    unsigned lambdaResolution = 0;
+    float maxMSE = 0;
+    float  avgMSE = 0;
+    unsigned highMSE = 0;
+    std::string runmode("");
+    std::string compareLocation("");
+    float runtime = 0.0;
+    bool writeVtk = false;
+    bool useReflections = false;
+    std::vector<unsigned> devices; 
+    unsigned maxGpus = 0;
+    DeviceMode deviceMode = NO_DEVICE_MODE;
+    ParallelMode parallelMode = NO_PARALLEL_MODE;
+    int minSampleRange = -1;
+    int maxSampleRange = -1;
+    time_t starttime   = time(0);
+    unsigned usedGpus  = 0;
+
+    fs::path inputPath;
+    fs::path outputPath;
+    double mseThreshold = 0;
+
+    // Wavelength data
+    std::vector<double> sigmaA;
+    std::vector<double> sigmaE;
+    std::vector<double> lambdaA;
+    std::vector<double> lambdaE;
+
+    // Parse Commandline
+
+    // Can the following block be moved into
+    // a parse function with a thin interface ?
+
+    //
+    // BEGIN PARSE BLOCK
+    //
+    parseCommandLine(argc,
+		     argv,
+		     &minRaysPerSample, // exp
+		     &maxRaysPerSample, // exp
+		     &inputPath, // opt -
+		     &writeVtk,  // opt -
+		     &deviceMode,// opt -
+		     &parallelMode, // opt -
+		     &useReflections, // exp
+		     &maxGpus, // opt -
+		     &minSampleRange, // opt -
+		     &maxSampleRange, // opt -
+		     &maxRepetitions, // exp
+		     &outputPath, // opt -
+		     &mseThreshold, // exp
+		     &lambdaResolution); // opt
+
+    printCommandLine(minRaysPerSample,
+		     maxRaysPerSample,
+		     inputPath,
+		     writeVtk,
+		     compareLocation,
+		     deviceMode,
+		     parallelMode,
+		     useReflections,
+		     maxGpus,
+		     minSampleRange,
+		     maxSampleRange,
+		     maxRepetitions,
+		     outputPath,
+		     mseThreshold);
+  
+    // Set/Test device to run experiment with
+    //
+    //TODO: this call takes a LOT of time (2-5s). Can this be avoided?
+    //TODO: maybe move this to a place where GPUs are actually needed (for_loops_clad doesn't even need GPUs!)
+    devices = getFreeDevices(maxGpus);
+
+    // sanity checks
+    if(checkParameterValidity(argc,
+			      minRaysPerSample,
+			      &maxRaysPerSample,
+			      inputPath,
+			      devices.size(),
+			      deviceMode,
+			      parallelMode,
+			      &maxGpus,
+			      minSampleRange,
+			      maxSampleRange,
+			      maxRepetitions,
+			      outputPath,
+			      &mseThreshold)) return 1;
+
+  
+    dout(V_INFO) << "parameter validity was checked!" << std::endl;
+
+    // Parse wavelengths from files
+    if(fileToVector(inputPath, "sigmaA.txt",  &sigmaA))   return 1;
+    if(fileToVector(inputPath, "sigmaE.txt",  &sigmaE))   return 1;
+    if(fileToVector(inputPath, "lambdaA.txt", &lambdaA)) return 1;
+    if(fileToVector(inputPath, "lambdaE.txt", &lambdaE)) return 1;
+    lambdaResolution = std::max(lambdaResolution, (unsigned) lambdaA.size());
+    lambdaResolution = std::max(lambdaResolution, (unsigned) lambdaE.size());
+  
+    assert(sigmaA.size() == lambdaA.size());
+    assert(sigmaE.size() == lambdaE.size());
+
+    // Interpolate sigmaA / sigmaE function
+    std::vector<double> sigmaAInterpolated = interpolateLinear(sigmaA, lambdaA, lambdaResolution); // exp
+    std::vector<double> sigmaEInterpolated = interpolateLinear(sigmaE, lambdaE, lambdaResolution); // exp
+    assert(sigmaAInterpolated.size() == sigmaEInterpolated.size());
+
+    // Calc max sigmaA / sigmaE
+    // TODO replace by some algorithm
+    double maxSigmaE = 0.0;
+    double maxSigmaA = 0.0;
+    for(unsigned i = 0; i < sigmaE.size(); ++i){
+	if(sigmaE.at(i) > maxSigmaE){
+	    maxSigmaE = sigmaE.at(i);
+	    maxSigmaA = sigmaA.at(i);
+	}
+    }
+
+    // Parse experientdata and fill mesh
+    std::vector<Mesh> meshs = parseMesh(inputPath, devices, maxGpus);
+
+    checkSampleRange(&minSampleRange,&maxSampleRange,meshs[0].numberOfSamples);
+
+    // Solution vector
+    std::vector<double>   dndtAse(meshs[0].numberOfSamples, 0); 
+    std::vector<float>    phiAse(meshs[0].numberOfSamples, 0); // exp
+    std::vector<double>   mse(meshs[0].numberOfSamples, 100000); // exp
+    std::vector<unsigned> totalRays(meshs[0].numberOfSamples, 0); // exp
+
+    //
+    // END PARSE BLOCK
+    //
+
+    experiment = ExperimentParameters ( minRaysPerSample,
+					maxRaysPerSample,
+					sigmaAInterpolated,
+					sigmaEInterpolated,
+					mseThreshold,
+					useReflections );
+
+    compute = ComputeParameters ( maxRepetitions,
+				  devices.at(0),
+				  deviceMode,
+				  parallelMode);
+
+    result = Result( phiAse, 
+		     mse, 
+		     totalRays );
+
+    mesh = meshs[0];
+
+    return 0;
+
+}
+    
 
 
 

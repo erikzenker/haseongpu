@@ -62,7 +62,7 @@
 
 #include <types.hpp>
 
-float calcPhiAseGrayBat ( const ExperimentParameters experiment,
-			  const ComputeParameters compute,
+float calcPhiAseGrayBat ( const ExperimentParameters &experiment,
+			  const ComputeParameters &compute,
 			  const Mesh& mesh,
-			  Result result );
+			  Result &result );

@@ -50,7 +50,7 @@ void masterFunction(Vertex master,
 		    const std::vector<unsigned> samples,
 		    Cage &cage,
 		    const Mesh& mesh,
-		    Result r ){
+		    Result& r ){
 
     typedef typename Cage::Edge Edge;
     
@@ -97,10 +97,10 @@ template <class Vertex, class Cage>
 void slaveFunction(const Vertex slave,
 		   const Vertex master,
 		   Cage &cage,
-		   const ExperimentParameters e,
-		   const ComputeParameters c,
+		   const ExperimentParameters& e,
+		   const ComputeParameters& c,
 		   const Mesh& mesh,
-		   Result r ){
+		   Result& r ){
     typedef typename Cage::Edge Edge;
     
     // Messages
@@ -158,10 +158,10 @@ void slaveFunction(const Vertex slave,
 }
 
 
-float calcPhiAseGrayBat ( const ExperimentParameters experiment,
-			  const ComputeParameters compute,
+float calcPhiAseGrayBat ( const ExperimentParameters &experiment,
+			  const ComputeParameters &compute,
 			  const Mesh& mesh,
-			  Result result ){
+			  Result &result ){
 
 
     /***************************************************************************

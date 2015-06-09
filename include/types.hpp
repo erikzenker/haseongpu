@@ -1,30 +1,43 @@
 #pragma once
 
+enum DeviceMode { NO_DEVICE_MODE, GPU_DEVICE_MODE, CPU_DEVICE_MODE};
+enum ParallelMode { NO_PARALLEL_MODE, THREADED_PARALLEL_MODE, MPI_PARALLEL_MODE, GRAYBAT_PARALLEL_MODE};
+
 struct ComputeParameters {
 
-    ComputeParameters( const unsigned maxRepetitions,
-		       const unsigned gpu_i) :
+    ComputeParameters() {}
+    
+    ComputeParameters(  unsigned maxRepetitions,
+		        unsigned gpu_i,
+			DeviceMode deviceMode,
+			ParallelMode parallelMode) :
 	maxRepetitions(maxRepetitions),
-	gpu_i(gpu_i) { }
+	gpu_i(gpu_i),
+	deviceMode(deviceMode),
+	parallelMode(parallelMode){ }
 
-    const unsigned maxRepetitions;
-    const unsigned gpu_i;
+    unsigned maxRepetitions;
+    unsigned gpu_i;
+    DeviceMode deviceMode;
+    ParallelMode parallelMode;
     
 };
 
 struct Result {
 
-    Result( std::vector<float> &hPhiAse,
-	    std::vector<double> &mse,
-	    std::vector<unsigned> &totalRays) :
+    Result(){}
+    
+    Result( std::vector<float> hPhiAse,
+	    std::vector<double> mse,
+	    std::vector<unsigned> totalRays) :
 	hPhiAse(hPhiAse),
 	mse(mse),
 	totalRays(totalRays) {}
   
 
-    std::vector<float> &hPhiAse;
-    std::vector<double> &mse;
-    std::vector<unsigned> &totalRays;
+    std::vector<float> hPhiAse;
+    std::vector<double> mse;
+    std::vector<unsigned> totalRays;
 
 
 
@@ -32,12 +45,14 @@ struct Result {
 
 struct ExperimentParameters {
 
-    ExperimentParameters( const unsigned minRaysPerSample,
-		const unsigned maxRaysPerSample,
-		const std::vector<double>& hSigmaA,
-		const std::vector<double>& hSigmaE,
-		const double mseThreshold,
-		const bool useReflections) :
+    ExperimentParameters() {}
+    
+    ExperimentParameters(  unsigned minRaysPerSample,
+		 unsigned maxRaysPerSample,
+		 std::vector<double> hSigmaA,
+		 std::vector<double> hSigmaE,
+		 double mseThreshold,
+		 bool useReflections) :
 	minRaysPerSample(minRaysPerSample),
 	maxRaysPerSample(maxRaysPerSample),
 	hSigmaA(hSigmaA),
@@ -45,12 +60,12 @@ struct ExperimentParameters {
 	mseThreshold(mseThreshold),
 	useReflections(useReflections) { }
 
-    const unsigned minRaysPerSample;
-    const unsigned maxRaysPerSample;
-    const std::vector<double>& hSigmaA;
-    const std::vector<double>& hSigmaE;
-    const double mseThreshold;
-    const bool useReflections;
+     unsigned minRaysPerSample;
+     unsigned maxRaysPerSample;
+     std::vector<double> hSigmaA;
+     std::vector<double> hSigmaE;
+     double mseThreshold;
+     bool useReflections;
 
 
 };
