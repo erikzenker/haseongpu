@@ -42,11 +42,11 @@ namespace fs = boost::filesystem;
 
 
 int parse( const int argc,
-	    char** argv,
-	    ExperimentParameters& experiment,
-	    ComputeParameters& compute,
-	    Mesh& mesh,
-	    Result& result) {
+	   char** argv,
+	   ExperimentParameters& experiment,
+	   ComputeParameters& compute,
+	   std::vector<Mesh>& meshs,
+	   Result& result) {
 
 
     unsigned minRaysPerSample = 0;
@@ -165,7 +165,7 @@ int parse( const int argc,
     }
 
     // Parse experientdata and fill mesh
-    std::vector<Mesh> meshs = parseMesh(inputPath, devices, maxGpus);
+    meshs = parseMesh(inputPath, devices, maxGpus);
 
     checkSampleRange(&minSampleRange,&maxSampleRange,meshs[0].numberOfSamples);
 
@@ -194,14 +194,15 @@ int parse( const int argc,
 				  parallelMode,
 				  writeVtk,
 				  inputPath,
-				  outputPath);
+				  outputPath,
+				  devices,
+				  minSampleRange,
+				  maxSampleRange);
 
     result = Result( phiAse, 
 		     mse, 
 		     totalRays,
 		     dndtAse );
-
-    mesh = meshs[0];
 
     return 0;
 

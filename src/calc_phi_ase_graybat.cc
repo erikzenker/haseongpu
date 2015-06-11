@@ -49,7 +49,7 @@ void masterFunction(Vertex master,
 		    const std::vector<unsigned> samples,
 		    Cage &cage,
 		    const Mesh& mesh,
-		    Result& r ){
+		    Result& result ){
 
     typedef typename Cage::Edge Edge;
     
@@ -74,9 +74,9 @@ void masterFunction(Vertex master,
 	    else {
 		// Process result
 		unsigned sample_i      = (unsigned) (resultMsg[0]);
-		r.phiAse.at(sample_i)   = resultMsg[1];
-		r.mse.at(sample_i)       = resultMsg[2];
-		r.totalRays.at(sample_i) = (unsigned) resultMsg[3];
+		result.phiAse.at(sample_i)   = resultMsg[1];
+		result.mse.at(sample_i)       = resultMsg[2];
+		result.totalRays.at(sample_i) = (unsigned) resultMsg[3];
 
 		// Update progress bar
 		fancyProgressBar(mesh.numberOfSamples);
@@ -96,10 +96,10 @@ template <class Vertex, class Cage>
 void slaveFunction(const Vertex slave,
 		   const Vertex master,
 		   Cage &cage,
-		   const ExperimentParameters& e,
-		   const ComputeParameters& c,
+		   const ExperimentParameters& experiment,
+		   const ComputeParameters& compute,
 		   const Mesh& mesh,
-		   Result& r ){
+		   Result& result ){
     typedef typename Cage::Edge Edge;
     
     // Messages
@@ -125,19 +125,19 @@ void slaveFunction(const Vertex slave,
 	    abort = true;
 	}
 	else {
-	    calcPhiAse ( e,
-			 c,
+	    calcPhiAse ( experiment,
+			 compute,
 			 mesh,
-			 r,
+			 result,
 			 sampleMsg.at(0),
 			 sampleMsg.at(0) + 1,
 			 runtime);
 			
 	    unsigned sample_i = sampleMsg[0];
 	    resultMsg = std::array<float, 4>{{ (float) sample_i,
-					       (float) r.phiAse.at(sample_i),
-					       (float) r.mse.at(sample_i),
-					       (float) r.totalRays.at(sample_i) }};
+					       (float) result.phiAse.at(sample_i),
+					       (float) result.mse.at(sample_i),
+					       (float) result.totalRays.at(sample_i) }};
 
 	    // Send simulation results
 	    cage.send(outEdge, resultMsg);

@@ -17,14 +17,20 @@ struct ComputeParameters {
 			ParallelMode parallelMode,
 			bool writeVtk,
 			fs::path inputPath,
-			fs::path outputPath) :
+			fs::path outputPath,
+			std::vector<unsigned> devices,
+			int minSampleRange,
+			int maxSampleRange) :
 	maxRepetitions(maxRepetitions),
 	gpu_i(gpu_i),
 	deviceMode(deviceMode),
 	parallelMode(parallelMode),
 	writeVtk(writeVtk),
 	inputPath(inputPath),
-	outputPath(outputPath){ }
+	outputPath(outputPath),
+	devices(devices),
+	minSampleRange(minSampleRange),
+	maxSampleRange(maxSampleRange){ }
 
     unsigned maxRepetitions;
     unsigned gpu_i;
@@ -33,6 +39,10 @@ struct ComputeParameters {
     bool writeVtk;
     fs::path inputPath;
     fs::path outputPath;
+    std::vector<unsigned> devices;
+    int minSampleRange;
+    int maxSampleRange;
+
     
 };
 

@@ -71,7 +71,7 @@ std::vector<int> generateRaysPerSampleExpList(int minRaysPerSample, int maxRaysP
 float calcPhiAse ( const ExperimentParameters& experiment,
 		   const ComputeParameters& compute,
 		   const Mesh& mesh,
-		   Result &result,
+		   Result& result,
 		   const unsigned minSample_i,
 		   const unsigned maxSample_i,
 		   float &runtime ){

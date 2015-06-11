@@ -212,8 +212,8 @@ std::vector<Mesh> parseMesh(const fs::path rootPath,
 
 
 int parse( const int argc,
-	    char** argv,
-	    ExperimentParameters& experiment,
-	    ComputeParameters& compute,
-	    Mesh& mesh,
-	    Result& result);
+	   char** argv,
+	   ExperimentParameters& experiment,
+	   ComputeParameters& compute,
+	   std::vector<Mesh>& mesh,
+	   Result& result);
