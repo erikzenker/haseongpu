@@ -140,7 +140,7 @@ namespace graybat {
         // Optional or raise exception ?
         // --> Optional makes code ugly
         // --> Programmer should know that edge exists
-        boost::optional<Edge> getEdge(const Vertex source, const Vertex target){
+        Edge getEdge(const Vertex source, const Vertex target){
             std::pair<EdgeID, bool> edge = graph.getEdge(source.id, target.id);
             
             if(edge.second){
@@ -151,7 +151,7 @@ namespace graybat {
                             *this);
             }
             else {
-                throw std::runtime_error("Edge between does not exist");
+                throw std::runtime_error("Edge between vertices does not exist");
             }
             
         }
