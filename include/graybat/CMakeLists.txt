@@ -7,12 +7,25 @@ cmake_minimum_required(VERSION 2.8.5)
 ###############################################################################
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/utils/cmake/modules/" ${CMAKE_MODULE_PATH})
 
+################################################################################
+# Find PThreads
+################################################################################
+find_package(Threads REQUIRED)
+set(LIBS ${LIBS} ${CMAKE_THREAD_LIBS_INIT})
+
 ###############################################################################
 # METIS
 ###############################################################################
 find_package(METIS 5.1.0)
 include_directories(SYSTEM ${METIS_INCLUDE_DIRS})
 set(LIBS ${LIBS} ${METIS_LIBRARIES})
+
+###############################################################################
+# ZMQ
+###############################################################################
+find_package(ZMQ 4.0.0)
+include_directories(SYSTEM ${ZMQ_INCLUDE_DIRS})
+set(LIBS ${LIBS} ${ZMQ_LIBRARIES})
 
 ###############################################################################
 # Boost
@@ -33,6 +46,7 @@ if(MPI_CXX_FOUND)
   set(LIBS ${LIBS} ${MPI_CXX_LIBRARIES})
 endif(MPI_CXX_FOUND)
 
+
 ###############################################################################
 # Compiler Flags
 ###############################################################################
@@ -43,11 +57,12 @@ if(${CXX_COMPILER_IS_G++})
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra")
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 endif(${CXX_COMPILER_IS_G++})
 
 if(${CXX_COMPILER_IS_CLANG++})
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 endif(${CXX_COMPILER_IS_CLANG++})
 
@@ -55,11 +70,14 @@ endif(${CXX_COMPILER_IS_CLANG++})
 # Build executables
 ###############################################################################
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/)
-		
-#add_executable(Main EXCLUDE_FROM_ALL src/main.cc)
+
+# Unit tests
+file(GLOB TEST_CASES  utils/unittests/*.cc)
+add_executable(Test EXCLUDE_FROM_ALL ${TEST_CASES})
+
 add_executable(GoL EXCLUDE_FROM_ALL  example/gol.cc )
 add_executable(ZMQ1 EXCLUDE_FROM_ALL example/zmq/request_reply.cc )
-add_executable(Test EXCLUDE_FROM_ALL utils/unittests/CageUT.cc )
+add_executable(ZMQ2 EXCLUDE_FROM_ALL example/zmq/publish_subscribe.cc )
 add_executable(Forward EXCLUDE_FROM_ALL  example/forward.cc )
 add_executable(Ring EXCLUDE_FROM_ALL  example/ring.cc )
 
@@ -68,6 +86,7 @@ add_executable(Ring EXCLUDE_FROM_ALL  example/ring.cc )
 # add the libraries (Boost...) to this executable
 target_link_libraries(GoL ${LIBS})
 target_link_libraries(ZMQ1 ${LIBS})
+target_link_libraries(ZMQ2 ${LIBS})
 target_link_libraries(Test ${LIBS})
 target_link_libraries(Forward ${LIBS})
 target_link_libraries(Ring ${LIBS})

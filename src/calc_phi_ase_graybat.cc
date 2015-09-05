@@ -33,6 +33,7 @@
 // GrayBat
 #include <graybat/Cage.hpp>
 #include <graybat/communicationPolicy/BMPI.hpp>
+#include <graybat/communicationPolicy/ZMQ.hpp>
 #include <graybat/graphPolicy/BGL.hpp>
 #include <graybat/pattern/BidirectionalStar.hpp>
 #include <graybat/mapping/Roundrobin.hpp>
@@ -57,7 +58,6 @@ void distributeSamples(Vertex master,
     std::array<int, 1>   sampleMsg; 
     
     for(auto sample = samples.begin(); sample != samples.end();){
-
 
         // Receive request or results
         Edge inEdge = cage.recv(resultMsg);
@@ -164,13 +164,12 @@ float calcPhiAseGrayBat ( const ExperimentParameters &experiment,
      * CAGE
      **************************************************************************/
     // Configuration
-
-    typedef typename graybat::communicationPolicy::BMPI CP;
+    typedef typename graybat::communicationPolicy::ZMQ  CP;
     typedef typename graybat::graphPolicy::BGL<>        GP;
     typedef typename graybat::Cage<CP, GP>              Cage;
     typedef typename Cage::Vertex                       Vertex;
     typedef typename Cage::Edge                         Edge;
-    
+
     // Init
     Cage cage;
     const unsigned nPeers = cage.getPeers().size();

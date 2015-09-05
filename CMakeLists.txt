@@ -11,6 +11,11 @@ endif(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.8.2)
 
 
 ###############################################################################
+# CMAKE module path in utils/cmake/modules/
+###############################################################################
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/utils/cmake/modules/" ${CMAKE_MODULE_PATH})
+
+###############################################################################
 # CUDA
 ###############################################################################
 find_package(CUDA 5.5 REQUIRED)
@@ -80,6 +85,13 @@ if(MPI_CXX_FOUND)
   set(LIBS ${LIBS} ${MPI_CXX_LIBRARIES})
 endif(MPI_CXX_FOUND)
 
+###############################################################################
+# ZMQ
+###############################################################################
+find_package(ZMQ 4.0.0)
+include_directories(SYSTEM ${ZMQ_INCLUDE_DIRS})
+set(LIBS ${LIBS} ${ZMQ_LIBRARIES})
+
 
 ################################################################################
 # Find PThreads
@@ -93,7 +105,7 @@ set(LIBS ${LIBS} ${CMAKE_THREAD_LIBS_INIT})
 ################################################################################
 # GNU
 if(CMAKE_COMPILER_IS_GNUCXX)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")  
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")  
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra")

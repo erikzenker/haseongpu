@@ -1,6 +1,4 @@
 // boost 
-#define BOOST_TEST_DYN_LINK
-#define BOOST_TEST_MODULE Cage
 #include <boost/test/unit_test.hpp>
 
 // graybat
@@ -10,9 +8,8 @@
 #include <mapping/Random.hpp>
 #include <mapping/Consecutive.hpp>
 #include <pattern/FullyConnected.hpp>
-#include <pattern/Star.hpp>
+#include <pattern/InStar.hpp>
 #include <pattern/Grid.hpp>
-
 
 // stl
 #include <array>
@@ -28,26 +25,91 @@
 typedef graybat::communicationPolicy::BMPI CP;
     
 // GraphPolicy
-typedef graybat::graphPolicy::BGL<>   GP;
+typedef graybat::graphPolicy::BGL<>        GP;
     
 // Cage
-typedef graybat::Cage<CP, GP>   MyCage;
-typedef typename MyCage::Event  Event;
-typedef typename MyCage::Vertex Vertex;
-typedef typename MyCage::Edge   Edge;
+typedef graybat::Cage<CP, GP> Cage;
+typedef typename Cage::Event  Event;
+typedef typename Cage::Vertex Vertex;
+typedef typename Cage::Edge   Edge;
 
 
 /***************************************************************************
  * Test Cases
  ****************************************************************************/
 
-BOOST_AUTO_TEST_SUITE(point_to_point)
+BOOST_AUTO_TEST_SUITE( cage_point_to_point )
+
+Cage allToAll;
+Cage star;
+
+BOOST_AUTO_TEST_CASE( multi_cage ){
+    Cage cage1;
+    Cage cage2;
+
+    cage1.setGraph(graybat::pattern::InStar(cage1.getPeers().size()));
+    cage1.distribute(graybat::mapping::Consecutive());
+    cage2.setGraph(graybat::pattern::InStar(cage2.getPeers().size()));
+    cage2.distribute(graybat::mapping::Consecutive());
 
 
-MyCage allToAll(graybat::pattern::FullyConnected(2));
-MyCage star(graybat::pattern::Star(2));
+    const unsigned nElements = 1000;
+    
+    std::vector<Event> events; 
+    std::vector<unsigned> send(nElements,0);
+    std::vector<unsigned> recv1(nElements,0);
+    std::vector<unsigned> recv2(nElements,0);
+
+    for(unsigned i = 0; i < send.size();++i){
+        send.at(i) = i;
+    }
+
+    // Send state to neighbor cells
+    for(Vertex &v : cage1.hostedVertices){
+        for(Edge edge : cage1.getOutEdges(v)){
+            cage1.send(edge, send);
+	    
+        }
+    }
+
+    for(Vertex &v : cage2.hostedVertices){
+        for(Edge edge : cage2.getOutEdges(v)){
+            cage2.send(edge, send);
+	    
+        }
+    }
+
+
+    // Recv state from neighbor cells
+    for(Vertex &v : cage1.hostedVertices){
+        for(Edge edge : cage1.getInEdges(v)){
+            cage1.recv(edge, recv1);
+            for(unsigned i = 0; i < recv1.size();++i){
+        	BOOST_CHECK_EQUAL(recv1.at(i), i);
+            }
+
+        }
+	
+    }
+
+    // Recv state from neighbor cells
+    for(Vertex &v : cage2.hostedVertices){
+        for(Edge edge : cage2.getInEdges(v)){
+            cage2.recv(edge, recv2);
+            for(unsigned i = 0; i < recv2.size();++i){
+        	BOOST_CHECK_EQUAL(recv2.at(i), i);
+            }
+
+        }
+	
+    }
+
+    
+}
+
 
 BOOST_AUTO_TEST_CASE( send_recv ){
+    star.setGraph(graybat::pattern::InStar(star.getPeers().size()));
     star.distribute(graybat::mapping::Consecutive());
     const unsigned nElements = 1000;
     
@@ -83,7 +145,7 @@ BOOST_AUTO_TEST_CASE( send_recv ){
 
 
 BOOST_AUTO_TEST_CASE( asyncSend_recv ){
-
+    allToAll.setGraph(graybat::pattern::FullyConnected(allToAll.getPeers().size()));
     allToAll.distribute(graybat::mapping::Consecutive());
 
     const unsigned nElements = 1000;
@@ -126,13 +188,13 @@ BOOST_AUTO_TEST_CASE( asyncSend_recv ){
 
 BOOST_AUTO_TEST_SUITE_END()
 
-BOOST_AUTO_TEST_SUITE( collectives )
+BOOST_AUTO_TEST_SUITE( cage_collectives )
 
-MyCage grid(graybat::pattern::Grid(3,3));
-MyCage star(graybat::pattern::Star(20));
+Cage grid;
+Cage star;
 
 BOOST_AUTO_TEST_CASE( reduce ){
-
+    grid.setGraph(graybat::pattern::Grid(3,3));
     grid.distribute(graybat::mapping::Consecutive());
 
     const unsigned nElements = 10;
@@ -156,7 +218,7 @@ BOOST_AUTO_TEST_CASE( reduce ){
 
 
 BOOST_AUTO_TEST_CASE( allReduce ){
-
+    grid.setGraph(graybat::pattern::Grid(grid.getPeers().size(), grid.getPeers().size()));
     grid.distribute(graybat::mapping::Consecutive());
 
     const unsigned nElements = 10;
@@ -175,7 +237,7 @@ BOOST_AUTO_TEST_CASE( allReduce ){
 }
 
 BOOST_AUTO_TEST_CASE( gather ){
-
+    grid.setGraph(graybat::pattern::Grid(3,3));
     grid.distribute(graybat::mapping::Consecutive());
 
     const unsigned nElements = 10;
@@ -202,7 +264,7 @@ BOOST_AUTO_TEST_CASE( gather ){
 }
 
 BOOST_AUTO_TEST_CASE( allGather ){
-
+    grid.setGraph(graybat::pattern::Grid(grid.getPeers().size(), grid.getPeers().size()));
     grid.distribute(graybat::mapping::Consecutive());
 
     const unsigned nElements = 10;
@@ -224,7 +286,7 @@ BOOST_AUTO_TEST_CASE( allGather ){
 }
 
 BOOST_AUTO_TEST_CASE( spreadAndCollect ){
-
+    star.setGraph(graybat::pattern::InStar(star.getPeers().size()));
     star.distribute(graybat::mapping::Consecutive());
 
     const unsigned nElements = 10;

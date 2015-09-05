@@ -1,14 +1,20 @@
 #pragma once
+
+// STL
 #include <map>        /* map */
 #include <set>        /* set */
 #include <exception>  /* std::out_of_range */
 #include <sstream>    /* std::stringstream */
-#include <assert.h>   /* assert */
-#include <cstddef>    /* nullptr_t */
 #include <algorithm>  /* std::max */
 #include <stdexcept>  /* std::runtime_error */
 #include <tuple>      /* std::tie */
+#include <sstream>    /* std::sstream */
 
+// C LIB
+#include <assert.h>   /* assert */
+#include <cstddef>    /* nullptr_t */
+
+// GrayBat
 #include <utils.hpp>  /* exclusivePrefixSum */
 #include <Vertex.hpp> /* CommunicationVertex */
 #include <Edge.hpp>   /* CommunicationEdge */
@@ -148,7 +154,7 @@ namespace graybat {
                             *this);
             }
             else {
-                throw std::runtime_error("Edge between vertices does not exist");
+                throw std::runtime_error("Edge between does not exist");
             }
             
         }
@@ -277,74 +283,42 @@ namespace graybat {
 
             if(global){
                 oldContext = comm.getGlobalContext();
-
-            }
-                
-            if(!oldContext.valid()){
-
-            }
-            else {
-                //std::cout << "Has already context" << std::endl;
             }
 
             assert(oldContext.valid());
 
-            // Create new context for peers which host vertices
-            std::vector<unsigned> nVertices(1, vertices.size());
-            std::vector<unsigned> recvHasVertices(oldContext.size(), 0);
-            comm.allGather(oldContext, nVertices, recvHasVertices);
-
-            std::vector<VAddr> vAddrsWithVertices;
-
-            for(unsigned i = 0; i < recvHasVertices.size(); ++i){
-                if(recvHasVertices[i] > 0){
-                    vAddrsWithVertices.push_back(i);
-                }
-            }
-
-            Context newContext = comm.createContext(vAddrsWithVertices, oldContext);
-            graphContext = newContext;
-        
-            // Each peer announces the vertices it hosts
-            if(newContext.valid()){
-                // Bound graph to new context
+            graphContext = comm.splitContext(vertices.size(), oldContext);
 
             
-                // Retrieve maximum number of vertices per peer
-                std::vector<unsigned> nVertices(1,vertices.size());
-                std::vector<unsigned> maxVerticesCount(1,  0);
-                comm.allReduce(newContext, maximum<unsigned>(), nVertices, maxVerticesCount);
+            // Each peer announces the vertices it hosts
+            if(graphContext.valid()){
+                std::array<unsigned, 1> nVertices {{static_cast<unsigned>(vertices.size())}};
+                std::vector<unsigned> vertexIDs;
 
-                // Gather maxVerticesCount times vertex ids
-                std::vector<std::vector<Vertex> > newVertexMaps (newContext.size(), std::vector<Vertex>());
-                for(unsigned i = 0; i < maxVerticesCount[0]; ++i){
-                    std::vector<int> vertexID(1, -1);
-                    std::vector<int> recvData(newContext.size(), 0);
+                std::for_each(vertices.begin(), vertices.end(), [&vertexIDs](Vertex v){vertexIDs.push_back(v.id);});
 
-                    if(i < vertices.size()){
-                        vertexID[0] = vertices.at(i).id;
-                    }
-
-                    comm.allGather(newContext, vertexID, recvData);
-                
-                   
-                    for(unsigned vAddr = 0; vAddr < newVertexMaps.size(); ++vAddr){
-                        if(recvData[vAddr] != -1){
-                            VertexID vertexID = (VertexID) recvData[vAddr];
-                            Vertex v = getVertices().at(vertexID);
-                            vertexMap[v.id] = vAddr;
-                            newVertexMaps[vAddr].push_back(v);
-                    
-                        }
-
-                    }
-      
-                    for(unsigned vAddr = 0; vAddr < newVertexMaps.size(); ++vAddr){
-                        peerMap[vAddr] = newVertexMaps[vAddr];
-
-                    }
-
+                // Send hostedVertices to all other peers
+                for(unsigned vAddr = 0; vAddr < graphContext.size(); ++vAddr){
+                    assert(nVertices[0] != 0);
+                    comm.asyncSend(vAddr, 0, graphContext, nVertices);
+                    comm.asyncSend(vAddr, 0, graphContext, vertexIDs);
                 }
+
+                // Recv hostedVertices from all other peers
+                for(unsigned vAddr = 0; vAddr < graphContext.size(); ++vAddr){
+                    std::vector<Vertex>  remoteVertices;
+                    std::array<unsigned, 1> nVertices {{ 0 }};
+                    comm.recv(vAddr, 0, graphContext, nVertices);
+                    std::vector<unsigned> vertexIDs(nVertices[0]);
+                    comm.recv(vAddr, 0, graphContext, vertexIDs);
+
+                    for(unsigned u : vertexIDs){
+                        vertexMap[u] = vAddr;
+                        remoteVertices.push_back(Cage::getVertex(u));
+                    }
+                    peerMap[vAddr] = remoteVertices;
+
+                 }
 
             }
 
@@ -372,7 +346,15 @@ namespace graybat {
          *
          */
         VAddr locateVertex(Vertex vertex){
-            return vertexMap.at(vertex.id);
+            auto it = vertexMap.find(vertex.id);
+            if(it != vertexMap.end()){
+                return (*it).second;
+            }
+            else {
+                std::stringstream errorMsg;
+                errorMsg << "[" << comm.getGlobalContext().getVAddr() << "] No host of vertex " << vertex.id << " known.";
+                throw std::runtime_error(errorMsg.str());
+            }
 
         }
 
@@ -473,10 +455,10 @@ namespace graybat {
         Edge recv(T& data){
             Event event = comm.recv(graphContext, data);
 
-            return Edge(graph.getEdgeProperty(event.tag()).first,
-                        getVertex(graph.getEdgeSource(event.tag())),
-                        getVertex(graph.getEdgeTarget(event.tag())),
-                        graph.getEdgeProperty(event.tag()).second,
+            return Edge(graph.getEdgeProperty(event.getTag()).first,
+                        getVertex(graph.getEdgeSource(event.getTag())),
+                        getVertex(graph.getEdgeTarget(event.getTag())),
+                        graph.getEdgeProperty(event.getTag()).second,
                         *this);
         }
 
@@ -734,7 +716,10 @@ namespace graybat {
         }
 
         /**
-         * @brief collects data from all incoming edges
+         * @brief Collects data from all incoming edges under the
+         *        assumption that all vertices send the same  number
+         *        of data.
+         *
          *
          * @param[in]  vertex that collects data
          * @param[in]  data were collected data will be stored
@@ -758,6 +743,12 @@ namespace graybat {
             comm.synchronize(graphContext);
 
         }
+
+
+        int ContextID(){
+            return graphContext.getID();
+        }
+        
         /** @} */
 
     private:
