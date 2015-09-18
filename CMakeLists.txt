@@ -19,8 +19,66 @@ LIST(APPEND CMAKE_MODULE_PATH "${ALPAKA_ROOT}")
 
 find_package("alpaka" REQUIRED)
 include_directories(SYSTEM ${alpaka_INCLUDE_DIRS})
-add_definitions(${alpaka_DEFINITIONS}) 
+#add_definitions(${alpaka_DEFINITIONS}) 
 set(LIBS ${LIBS} ${alpaka_LIBRARIES})
+
+
+###############################################################################
+# CUDA
+###############################################################################
+set(CUDA_TOOLKIT_ROOT_DIR "/opt/cuda")
+
+find_package(CUDA 7.0 REQUIRED)
+
+set(CUDA_SEPARABLE_COMPILATION ON)
+# Do not propagate CXX flags to the nvcc host compiler (especially -std=c++11)
+set(CUDA_PROPAGATE_HOST_FLAGS OFF)
+
+#set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" -std=c++11)
+#set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" -x=cu)
+
+#if(CUDA_VERSION VERSION_LESS 5.5)
+#  message(STATUS "CUDA Toolkit < 5.5 detected. We strongly recommend to still "
+#    "use CUDA 5.5+ drivers (319.82 or higher)!")
+#endif(CUDA_VERSION VERSION_LESS 5.5)
+
+#set(CUDA_ARCH sm_20 CACHE STRING "Set GPU architecture")
+#string(COMPARE EQUAL ${CUDA_ARCH} "sm_10" IS_CUDA_ARCH_UNSUPPORTED)
+#string(COMPARE EQUAL ${CUDA_ARCH} "sm_11" IS_CUDA_ARCH_UNSUPPORTED)
+#string(COMPARE EQUAL ${CUDA_ARCH} "sm_12" IS_CUDA_ARCH_UNSUPPORTED)
+#string(COMPARE EQUAL ${CUDA_ARCH} "sm_13" IS_CUDA_ARCH_UNSUPPORTED)
+
+#if(IS_CUDA_ARCH_UNSUPPORTED)
+#  message(FATAL_ERROR "Unsupported CUDA architecture ${CUDA_ARCH} specified. "
+#    "SM 2.0 or higher is required.")
+#endif(IS_CUDA_ARCH_UNSUPPORTED)
+
+#set(CUDA_FTZ "--ftz=false" CACHE STRING "Set flush to zero for GPU")
+
+#set(CUDA_MATH --use_fast_math CACHE STRING "Enable fast-math" )
+#option(CUDA_SHOW_REGISTER "Show kernel registers and create PTX" OFF)
+#option(CUDA_KEEP_FILES "Keep all intermediate files that are generated during internal compilation steps (folder: nvcc_tmp)" OFF)
+#option(CUDA_SHOW_CODELINES "Show kernel lines in cuda-gdb and cuda-memcheck" OFF)
+
+#if(CUDA_SHOW_CODELINES)
+#  set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" --source-in-ptx -Xcompiler -rdynamic -lineinfo)
+#  set(CUDA_KEEP_FILES ON CACHE BOOL "activate keep files" FORCE)
+#endif(CUDA_SHOW_CODELINES)
+
+#set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} ${nvcc_flags} -arch=${CUDA_ARCH} ${CUDA_MATH} ${CUDA_FTZ})
+#if(CUDA_SHOW_REGISTER)
+#  set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" -Xptxas=-v)
+#endif(CUDA_SHOW_REGISTER)
+
+#if(CUDA_KEEP_FILES)
+#  make_directory("${PROJECT_BINARY_DIR}/nvcc_tmp")
+#  set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" --keep --keep-dir "${PROJECT_BINARY_DIR}/nvcc_tmp")
+#endif(CUDA_KEEP_FILES)
+
+# save the current configuration to be used with the linker.
+# any further additions to CUDA_NVCC_FLAGS will NOT be passed to
+# the linker. See the modified FindCUDA.cmake module
+set(CUDA_NVCC_LINKER_FLAGS ${CUDA_NVCC_FLAGS})
 
 ################################################################################
 # Find MPI
@@ -169,7 +227,8 @@ endif(MSVC)
 # Executables
 ###############################################################################
 set(HASEonGPU_NAME "calcPhiASE")
-file(GLOB SRCFILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c*")
+file(GLOB SRCFILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc")
+file(GLOB CUDASRCFILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cu")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
@@ -184,7 +243,45 @@ else()
 endif()
 
 
-add_executable(${HASEonGPU_NAME} ${SRCFILES})
+
+
+IF(ALPAKA_ACC_GPU_CUDA_ENABLE)
+    # Force the .cpp files to be recognized as headers and not be compiled so there wont be a second entry point.
+    #SET_SOURCE_FILES_PROPERTIES(
+#	   ${SRCFILES}
+#	    PROPERTIES HEADER_FILE_ONLY TRUE)
+    # CUDA does not work well with the much better target dependent TARGET_XXX commands but requires the settings to be available globally: https://www.cmake.org/Bug/view.php?id=14201&nbn=1
+    #INCLUDE_DIRECTORIES(
+    #    ${_INCLUDE_DIRECTORIES_PRIVATE}
+    #    ${alpaka_INCLUDE_DIRS})
+
+    #CUDA_WRAP_SRCS(${HASEonGPU_NAME} OBJ CUSRCFILES ${SRCFILES})
+
+    #message(WARNING ${CUSRCFILES})
+    #message(WARNING ${SRCFILES})    
+
+
+    ADD_DEFINITIONS(${alpaka_DEFINITIONS} ${ALPAKA_DEV_COMPILE_OPTIONS})
+    CMAKE_POLICY(SET CMP0023 OLD)   # CUDA_ADD_EXECUTABLE calls TARGET_LINK_LIBRARIES without keywords.
+    CUDA_ADD_EXECUTABLE(${HASEonGPU_NAME} ${CUDASRCFILES} ${SRCFILES})
+ELSE()
+    # Force the .cu files to be recognized as headers and not be compiled so there wont be a second entry point.
+    #SET_SOURCE_FILES_PROPERTIES(
+    #    ${_FILES_SOURCE_CU}
+    #    PROPERTIES HEADER_FILE_ONLY TRUE)
+    #ADD_EXECUTABLE(
+    #    "vectorAdd"
+    #    ${_FILES_HEADER} ${_FILES_SOURCE_CXX} ${_FILES_SOURCE_CU})
+    #TARGET_INCLUDE_DIRECTORIES(
+    #    "vectorAdd"
+    #    PRIVATE ${_INCLUDE_DIRECTORIES_PRIVATE})
+    #TARGET_COMPILE_OPTIONS(
+    #    "vectorAdd"
+    #    PRIVATE ${ALPAKA_DEV_COMPILE_OPTIONS})
+ENDIF()
+
+
+#add_executable(${HASEonGPU_NAME} ${SRCFILES})
 target_link_libraries(${HASEonGPU_NAME} ${LIBS})
 
 

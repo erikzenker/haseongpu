@@ -40,7 +40,6 @@
 
 // HASEonGPU
 #include <geometry.hpp>
-#include <ConstHybridVector.hpp>
 
 
 #define REFLECTION_SMALL 1E-3
