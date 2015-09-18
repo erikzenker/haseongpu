@@ -164,8 +164,8 @@ void assertMin(const std::vector<T>& v,const  B minElement,const bool equals){
  * @brief fills a device mesh with the correct datastructures
  *
  */
-template <typename T_Acc, typename T_Dev>
-Mesh<T_Acc, T_Dev> createMesh(const std::vector<unsigned> &triangleIndices, 
+template <typename T_Acc, typename T_Dev, typename T_Stream>
+Mesh<T_Acc, T_Dev, T_Stream> createMesh(const std::vector<unsigned> &triangleIndices, 
 			      const unsigned numberOfTriangles, 
 			      const unsigned numberOfLevels,
 			      const unsigned numberOfPoints, 
@@ -207,38 +207,38 @@ Mesh<T_Acc, T_Dev> createMesh(const std::vector<unsigned> &triangleIndices,
 	totalReflectionAngles.at(i/2) = (180. / M_PI *  asin(refractiveIndices.at(i+1) / refractiveIndices.at(i)));
     }
 
-    return Mesh<T_Acc, T_Dev> ( cladAbsorption,
-				totalSurface,
-				thicknessOfPrism,
-				nTot,
-				crystalFluorescence,
-				numberOfTriangles,
-				numberOfLevels,
-				numberOfTriangles * (numberOfLevels-1),
-				numberOfPoints,
-				numberOfPoints * numberOfLevels,
-				cladNumber,
-				pointsVector,
-				hostNormalVec,
-				betaValuesVector,
-				hostCenters,
-				surfacesVector,
-				forbiddenVector,
-				betaCells,
-				cellTypes,
-				refractiveIndices,
-				reflectivities,
-				totalReflectionAngles,
-				triangleIndices,
-				neighborsVector,
-				positionsOfNormalVectors,
-				dev);
+    return Mesh<T_Acc, T_Dev, T_Stream> ( cladAbsorption,
+					  totalSurface,
+					  thicknessOfPrism,
+					  nTot,
+					  crystalFluorescence,
+					  numberOfTriangles,
+					  numberOfLevels,
+					  numberOfTriangles * (numberOfLevels-1),
+					  numberOfPoints,
+					  numberOfPoints * numberOfLevels,
+					  cladNumber,
+					  pointsVector,
+					  hostNormalVec,
+					  betaValuesVector,
+					  hostCenters,
+					  surfacesVector,
+					  forbiddenVector,
+					  betaCells,
+					  cellTypes,
+					  refractiveIndices,
+					  reflectivities,
+					  totalReflectionAngles,
+					  triangleIndices,
+					  neighborsVector,
+					  positionsOfNormalVectors,
+					  dev);
 
 }
 
 
-template <typename T_Acc, typename T_Dev>
-Mesh<T_Acc, T_Dev> parseMesh( fs::path const rootPath,
+template <typename T_Acc, typename T_Dev, typename T_Stream>
+Mesh<T_Acc, T_Dev, T_Stream> parseMesh( fs::path const rootPath,
 			      T_Dev &dev) {
 
     // Parse experimentdata from files
@@ -300,29 +300,29 @@ Mesh<T_Acc, T_Dev> parseMesh( fs::path const rootPath,
     assertRange(refractiveIndices,0,5,false);
     assertRange(reflectivities,0,1,false);
 
-    return createMesh<T_Acc, T_Dev>(trianglePointIndices,
-				    numberOfTriangles,
-				    numberOfLevels,
-				    numberOfPoints,
-				    thickness,
-				    points,
-				    triangleCenterX,
-				    triangleCenterY,
-				    triangleNormalPoint,
-				    triangleNormalsX,
-				    triangleNormalsY,
-				    forbiddenEdge,
-				    triangleNeighbors,
-				    triangleSurfaces,
-				    betaVolume,
-				    betaCells,
-				    claddingCellTypes,
-				    refractiveIndices,
-				    reflectivities,
-				    nTot,
-				    crystalTFluo,
-				    claddingNumber,
-				    claddingAbsorption,
-				    dev);
+    return createMesh<T_Acc, T_Dev, T_Stream>(trianglePointIndices,
+					      numberOfTriangles,
+					      numberOfLevels,
+					      numberOfPoints,
+					      thickness,
+					      points,
+					      triangleCenterX,
+					      triangleCenterY,
+					      triangleNormalPoint,
+					      triangleNormalsX,
+					      triangleNormalsY,
+					      forbiddenEdge,
+					      triangleNeighbors,
+					      triangleSurfaces,
+					      betaVolume,
+					      betaCells,
+					      claddingCellTypes,
+					      refractiveIndices,
+					      reflectivities,
+					      nTot,
+					      crystalTFluo,
+					      claddingNumber,
+					      claddingAbsorption,
+					      dev);
 }
 
