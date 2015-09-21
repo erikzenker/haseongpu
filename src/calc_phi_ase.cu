@@ -32,7 +32,7 @@
 
 // HASEonGPU
 //#include <write_to_vtk.hpp>
-//#include <progressbar.hpp>         /*progressBar */
+#include <progressbar.hpp>         /*progressBar */
 //#include <logging.hpp>
 #include <importance_sampling.hpp>  /* importanceSamplingPropagation, importanceSamplingDistribution */
 #include <types.hpp>                /* ExperimentParameter, ComputeParameter, Result */
@@ -133,6 +133,9 @@ T_Value reduce(T_Stream &stream, T_Buf const &buf, T_Extents const extents, T_Va
 
 }
 
+/******************************************************************************
+ * Random number generator
+ ******************************************************************************/
 template <typename T_Acc, typename T_RndNumber>
 struct RandomNumberGenerator {
 
@@ -211,7 +214,7 @@ float calcPhiAse ( const ExperimentParameters& experiment,
     using StreamHost  = alpaka::stream::StreamCpuSync;
     using DevAcc  = alpaka::dev::Dev<Acc>;
     using DevHost = alpaka::dev::DevCpu;
-    using RndAcc  = RandomNumberGenerator<Acc,  double>;
+    using RndAcc  = RandomNumberGenerator<Acc, float>;
     
     // Initialize random number generator
     RndAcc  rndAcc;
@@ -332,6 +335,8 @@ float calcPhiAse ( const ExperimentParameters& experiment,
      * Calculation for each sample point
      ****************************************************************************/
     for(unsigned sample_i = minSample_i; sample_i < maxSample_i; ++sample_i){
+	//std::cout << sample_i <<std::endl;
+	
     	unsigned raysPerSampleDump = 0; 
     	raysPerSampleIter           = raysPerSampleList.begin();
     	bool mseTooHigh             = true;
@@ -400,11 +405,11 @@ float calcPhiAse ( const ExperimentParameters& experiment,
 		
     		alpaka::mem::view::getPtrNative(hGainSum)[0]                   = 0;
     		alpaka::mem::view::getPtrNative(hGainSumSquare)[0]             = 0;
-    		//alpaka::mem::view::getPtrNative(hGlobalOffsetMultiplicator)[0] = 0;
+    		alpaka::mem::view::getPtrNative(hGlobalOffsetMultiplicator)[0] = 0;
 
     		alpaka::mem::view::copy(stream, dGainSum, hGainSum, static_cast<Extents>(1));
     		alpaka::mem::view::copy(stream, dGainSumSquare, hGainSumSquare, static_cast<Extents>(1));
-    		//alpaka::mem::view::copy(stream, dGlobalOffsetMultiplicator, hGlobalOffsetMultiplicator, static_cast<Extents>(1));    		
+    		alpaka::mem::view::copy(stream, dGlobalOffsetMultiplicator, hGlobalOffsetMultiplicator, static_cast<Extents>(1));    		
 
     		// FIXIT: following 4 lines just to have some temporary global variable in the kernel
 
@@ -472,7 +477,7 @@ float calcPhiAse ( const ExperimentParameters& experiment,
     		    result.phiAse.at(sample_i)    = alpaka::mem::view::getPtrNative(hGainSum)[0]; 
     		    result.phiAse.at(sample_i)   /= *raysPerSampleIter * 4.0f * M_PI;
     		    result.totalRays.at(sample_i) = *raysPerSampleIter;
-    		    //std::cout << result.phiAse.at(sample_i) << std::endl;
+    		    std::cout << sample_i <<  " " << result.phiAse.at(sample_i) << std::endl;
     		}
 
 
@@ -487,9 +492,9 @@ float calcPhiAse ( const ExperimentParameters& experiment,
 	  
      	}
 
-    	// if(verbosity & V_PROGRESS){
-    	//     fancyProgressBar(mesh.numberOfSamples);
-    	// }
+    	//if(verbosity & V_PROGRESS){
+	//fancyProgressBar(4210);
+	//}
 
     }
 
