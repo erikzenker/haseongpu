@@ -133,6 +133,53 @@ T_Value reduce(T_Stream &stream, T_Buf const &buf, T_Extents const extents, T_Va
 
 }
 
+template <typename T_Acc, typename T_RndNumber>
+struct RandomNumberGenerator {
+
+
+    using Gen = decltype(alpaka::rand::generator::createDefault(std::declval<T_Acc const &>(),
+								std::declval<uint32_t &>(),
+								std::declval<uint32_t &>()));
+    using Dist = decltype(alpaka::rand::distribution::createUniformReal<T_RndNumber>(std::declval<T_Acc const &>()));    
+    
+    RandomNumberGenerator() : gen(0){
+
+    }
+
+    ALPAKA_FN_ACC void init(const T_Acc& acc, const uint32_t seed){
+	const uint32_t offset = 0;
+	gen = alpaka::rand::generator::createDefault(acc, seed, offset);
+        dist = alpaka::rand::distribution::createUniformReal<T_RndNumber>(acc);
+    }
+
+    ALPAKA_FN_ACC T_RndNumber operator()(){
+	return dist(gen);
+    }
+	
+    // Members
+    Gen  gen;
+    Dist dist;
+    
+
+};
+
+struct InitRndGenerator {
+    template <typename T_Acc,
+	      typename T_Rand>
+    ALPAKA_FN_ACC void operator()(const T_Acc &acc,
+				  T_Rand &rand,
+				  const uint32_t seed) const {
+
+	rand.init(acc, seed);
+	
+    }
+
+};
+
+
+
+
+
 /******************************************************************************
  * Phi ASE calculations
  ******************************************************************************/
@@ -164,8 +211,11 @@ float calcPhiAse ( const ExperimentParameters& experiment,
     using StreamHost  = alpaka::stream::StreamCpuSync;
     using DevAcc  = alpaka::dev::Dev<Acc>;
     using DevHost = alpaka::dev::DevCpu;
-
-
+    using RndAcc  = RandomNumberGenerator<Acc,  double>;
+    
+    // Initialize random number generator
+    RndAcc  rndAcc;
+    
     // Get the first device
     DevAcc  devAcc  (alpaka::dev::DevMan<Acc>::getDevByIdx(0));
     DevHost devHost (alpaka::dev::cpu::getDev());
@@ -178,23 +228,16 @@ float calcPhiAse ( const ExperimentParameters& experiment,
     const Mesh<Host, DevHost, StreamHost> hMesh(parseMesh<Host, DevHost, StreamHost>(compute.inputPath, devHost));
 
     
-    //alpAka::core::forEachType<alpaka::core::accs::EnabledAccs<Dim, Size> >(AccInfo(), 5ul);
-
-    
-    // // Optimization to use more L1 cache
-    // cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
-    // cudaSetDevice(compute.gpu_i);
-
     // variable Definitions CPU
-    const time_t starttime                = time(0);
-    const unsigned maxReflections         = experiment.useReflections ? hMesh.getMaxReflections() : 0;
-    const unsigned reflectionSlices       = 1 + (2 * maxReflections);
+    const time_t starttime          = time(0);
+    const unsigned maxReflections   = experiment.useReflections ? hMesh.getMaxReflections() : 0;
+    const unsigned reflectionSlices = 1 + (2 * maxReflections);
 
-    const alpaka::Vec<Dim, Size> importanceGrid (static_cast<Size>(200), //can't be more than 200 due to restrictions from the Mersenne Twister 
+    const alpaka::Vec<Dim, Size> importanceGrid (static_cast<Size>(256), //can't be more than 200 due to restrictions from the Mersenne Twister 
     						 static_cast<Size>(reflectionSlices));
-    const alpaka::Vec<Dim, Size> grid (static_cast<Size>(200), //can't be more than 200 due to restrictions from the Mersenne Twister, MapPrefixSumToPrism needs number of prisms threads
+    const alpaka::Vec<Dim, Size> grid (static_cast<Size>(256), //can't be more than 200 due to restrictions from the Mersenne Twister, MapPrefixSumToPrism needs number of prisms threads
     				       static_cast<Size>(1));
-    const alpaka::Vec<Dim, Size> blocks (static_cast<Size>(1),
+    const alpaka::Vec<Dim, Size> blocks (static_cast<Size>(256),
     					 static_cast<Size>(1)); // can't be more than 256 due to restrictions from the Mersenne Twister
                                                                 // MUST be 128, since in the kernel we use a bitshift << 7
 
@@ -214,9 +257,9 @@ float calcPhiAse ( const ExperimentParameters& experiment,
   
     std::vector<int>::iterator raysPerSampleIter = raysPerSampleList.begin();
 
-    /*****************************************************************************
-     * Memory allocation/init and copy for device memory
-     ****************************************************************************/
+    // /*****************************************************************************
+    //  * Memory allocation/init and copy for device memory
+    //  ****************************************************************************/
 
     // Define memory buffers
     auto hNumberOfReflectionSlices ( alpaka::mem::buf::alloc<unsigned, Size, Extents, DevHost>(devHost, static_cast<Extents>(experiment.maxRaysPerSample)));
@@ -230,8 +273,6 @@ float calcPhiAse ( const ExperimentParameters& experiment,
     auto hSigmaA                   ( alpaka::mem::buf::alloc<double  , Size, Extents, DevHost>(devHost, static_cast<Extents>(experiment.sigmaA.size())));
     auto hSigmaE                   ( alpaka::mem::buf::alloc<double  , Size, Extents, DevHost>(devHost, static_cast<Extents>(experiment.sigmaE.size())));
     auto hGlobalOffsetMultiplicator( alpaka::mem::buf::alloc<unsigned, Size, Extents, DevHost>(devHost, static_cast<Extents>(1)));
-    
-    
   
     auto dNumberOfReflectionSlices ( alpaka::mem::buf::alloc<unsigned, Size, Extents, DevAcc>(devAcc, static_cast<Extents>(experiment.maxRaysPerSample)));
     auto dGainSum                  ( alpaka::mem::buf::alloc<float,    Size, Extents, DevAcc>(devAcc, static_cast<Extents>(1)));
@@ -261,7 +302,7 @@ float calcPhiAse ( const ExperimentParameters& experiment,
     initHostBuffer(hIndicesOfPrisms,          experiment.maxRaysPerSample, 0);
     initHostBuffer(hSigmaA,                   experiment.sigmaA.size(), experiment.sigmaA.begin(), experiment.sigmaA.end());
     initHostBuffer(hSigmaE,                   experiment.sigmaA.size(), experiment.sigmaE.begin(), experiment.sigmaA.end());
-    initHostBuffer(hGlobalOffsetMultiplicator,1, 0);    
+    initHostBuffer(hGlobalOffsetMultiplicator,1, 0);   
 
     // Copy host to device buffer
     alpaka::mem::view::copy(stream, dNumberOfReflectionSlices, hNumberOfReflectionSlices, static_cast<Extents>(experiment.maxRaysPerSample));
@@ -274,20 +315,18 @@ float calcPhiAse ( const ExperimentParameters& experiment,
     alpaka::mem::view::copy(stream, dIndicesOfPrisms, hIndicesOfPrisms, static_cast<Extents>(experiment.maxRaysPerSample));
     alpaka::mem::view::copy(stream, dSigmaA, hSigmaA, static_cast<Extents>(experiment.sigmaA.size()));
     alpaka::mem::view::copy(stream, dSigmaE, hSigmaE, static_cast<Extents>(experiment.sigmaE.size()));
-    alpaka::mem::view::copy(stream, dGlobalOffsetMultiplicator, hGlobalOffsetMultiplicator, static_cast<Extents>(1));    		    
+    alpaka::mem::view::copy(stream, dGlobalOffsetMultiplicator, hGlobalOffsetMultiplicator, static_cast<Extents>(1));    
 
-    // Kept this lines to have the correct dimension of the vectors for safety
-    // device_vector<unsigned> dNumberOfReflectionSlices(experiment.maxRaysPerSample, 0);
-    // device_vector<float>    dGainSum            (1, 0);
-    // device_vector<float>    dGainSumSquare      (1, 0);
-    // device_vector<unsigned> dRaysPerPrism       (mesh.numberOfPrisms * reflectionSlices, 1);
-    // device_vector<unsigned> dPrefixSum          (mesh.numberOfPrisms * reflectionSlices, 0);
-    // device_vector<double>   dImportance         (mesh.numberOfPrisms * reflectionSlices, 0);
-		 
-    // device_vector<double>   dPreImportance      (mesh.numberOfPrisms * reflectionSlices, 0);
-    // device_vector<unsigned> dIndicesOfPrisms    (experiment.maxRaysPerSample,  0);
-    // device_vector<double>   dSigmaA             (experiment.sigmaA.begin(), experiment.sigmaA.end());
-    // device_vector<double>   dSigmaE             (experiment.sigmaE.begin(),experiment.sigmaE.end());
+    /*****************************************************************************
+     * Initialize random number generator
+     ****************************************************************************/
+    InitRndGenerator initRndGenerator;
+
+    auto const execRndInit (alpaka::exec::create<Acc>(workdiv,
+    						      initRndGenerator,
+    						      rndAcc,
+    						      SEED));
+    alpaka::stream::enqueue(stream, execRndInit);
 
     /*****************************************************************************
      * Calculation for each sample point
@@ -311,9 +350,6 @@ float calcPhiAse ( const ExperimentParameters& experiment,
 
     	while(mseTooHigh){
 
-    	//     // FIXIT: Reset random seed ?
-    	//     // CURAND_CALL(curandMakeMTGP32KernelState(devMTGPStates, mtgp32dc_params_fast_11213, devKernelParams, gridDim.x, SEED + sample_i));
-	  
      	    unsigned run = 0;
      	    while(run < compute.maxRepetitions && mseTooHigh){
      	 	run++;
@@ -400,7 +436,8 @@ float calcPhiAse ( const ExperimentParameters& experiment,
 
     		    auto const exec (alpaka::exec::create<Acc>(workdiv,
     		    					       calcSampleGainSum,
-    		    					       dMesh, 
+    		    					       dMesh,
+    							       rndAcc,
     		    					       alpaka::mem::view::getPtrNative(dIndicesOfPrisms), 
     		    					       alpaka::mem::view::getPtrNative(dImportance),
     		    					       raysPerSampleDump, 

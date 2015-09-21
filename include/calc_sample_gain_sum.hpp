@@ -42,18 +42,9 @@
 #include <propagate_ray.hpp> /* propagateRay */
 
 // FIXIT: We should have some random number generator object and not initilize it again and again !
-template <typename T_Acc>
-ALPAKA_FN_ACC unsigned genRndSigmas(T_Acc const &acc, unsigned length) {
-    using Gen =   decltype(alpaka::rand::generator::createDefault(std::declval<T_Acc const &>(),
-								  std::declval<uint32_t &>(),
-								  std::declval<uint32_t &>()));
-    using Dist =  decltype(alpaka::rand::distribution::createUniformReal<float>(std::declval<T_Acc const &>()));
-    
-    // FIXIT: the orginal used blockid.x to 
-    Gen gen(alpaka::rand::generator::createDefault(acc, alpaka::idx::getIdx<alpaka::Grid, alpaka::Blocks>(acc)[0], 0));
-    Dist dist(alpaka::rand::distribution::createUniformReal<float>(acc));
-    
-    return static_cast<unsigned>(dist(gen) * (length-1));
+template <typename T_Rand>
+ALPAKA_FN_ACC unsigned genRndSigmas(unsigned length, T_Rand &rndGenerator) {
+    return static_cast<unsigned>(rndGenerator() * (length-1));
 }
 
 
@@ -117,9 +108,11 @@ ALPAKA_FN_ACC unsigned getRayNumberBlockbased(T_Acc const & acc, unsigned* const
  */
 struct CalcSampleGainSumWithReflection {
     template <typename T_Acc,
-	      typename T_Mesh>
+	      typename T_Mesh,
+	      typename T_Rand>
     ALPAKA_FN_ACC void operator()(const T_Acc &acc,
-				  const T_Mesh &mesh, 
+				  const T_Mesh &mesh,
+				  T_Rand &rndGenerator,
 				  const unsigned* indicesOfPrisms, 
 				  const unsigned* numberOfReflectionSlices,
 				  const double* importance,
@@ -155,10 +148,10 @@ struct CalcSampleGainSumWithReflection {
 		unsigned startLevel             = startPrism / mesh.numberOfTriangles;
 		unsigned startTriangle          = startPrism - (mesh.numberOfTriangles * startLevel);
 		unsigned reflectionOffset       = reflection_i * mesh.numberOfPrisms;
-		Point startPoint                = mesh.genRndPoint(acc, startTriangle, startLevel);
+		Point startPoint                = mesh.genRndPoint(rndGenerator, startTriangle, startLevel);
 	
 		//get a random index in the wavelength array
-		unsigned sigma_i                = genRndSigmas(acc, maxInterpolation);
+		unsigned sigma_i                = genRndSigmas(maxInterpolation, rndGenerator);
 
 		// Calculate reflections as different ray propagations
 		double gain    = propagateRayWithReflection(startPoint, samplePoint, reflections, reflectionPlane, startLevel, startTriangle, mesh, sigmaA[sigma_i], sigmaE[sigma_i]);
@@ -215,9 +208,11 @@ struct CalcSampleGainSumWithReflection {
  */
 struct CalcSampleGainSum {
     template <typename T_Acc,
-	      typename T_Mesh>
+	      typename T_Mesh,
+	      typename T_Rand>
     ALPAKA_FN_ACC void operator()(const T_Acc &acc,
 				  const T_Mesh &mesh,
+				  T_Rand &rndGenerator,
 				  const unsigned* indicesOfPrisms, 
 				  const double* importance,
 				  const unsigned raysPerSample,
@@ -250,11 +245,11 @@ struct CalcSampleGainSum {
 		unsigned startPrism             = indicesOfPrisms[rayNumber]; 
 		unsigned startLevel             = startPrism/mesh.numberOfTriangles;
 		unsigned startTriangle          = startPrism - (mesh.numberOfTriangles * startLevel);
-		Point startPoint                = mesh.genRndPoint(acc, startTriangle, startLevel);
+		Point startPoint                = mesh.genRndPoint(rndGenerator, startTriangle, startLevel);
 		Ray ray                         = generateRay(startPoint, samplePoint);
 
 		// get a random index in the wavelength array
-		unsigned sigma_i                = genRndSigmas(acc, maxInterpolation);
+		unsigned sigma_i                = genRndSigmas(maxInterpolation, rndGenerator);
 		assert(sigma_i < maxInterpolation);
 
 		// calculate the gain for the whole ray at once

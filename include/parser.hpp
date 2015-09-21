@@ -166,29 +166,29 @@ void assertMin(const std::vector<T>& v,const  B minElement,const bool equals){
  */
 template <typename T_Acc, typename T_Dev, typename T_Stream>
 Mesh<T_Acc, T_Dev, T_Stream> createMesh(const std::vector<unsigned> &triangleIndices, 
-			      const unsigned numberOfTriangles, 
-			      const unsigned numberOfLevels,
-			      const unsigned numberOfPoints, 
-			      const float thicknessOfPrism,
-			      std::vector<double> &pointsVector, 
-			      std::vector<double> &xOfTriangleCenter, 
-			      std::vector<double> &yOfTriangleCenter, 
-			      std::vector<unsigned> &positionsOfNormalVectors,
-			      std::vector<double> &xOfNormals, 
-			      std::vector<double> &yOfNormals,
-			      std::vector<int> &forbiddenVector, 
-			      std::vector<int> &neighborsVector, 
-			      std::vector<float> &surfacesVector,
-			      std::vector<double> &betaValuesVector,
-			      std::vector<double> &betaCells,
-			      std::vector<unsigned> &cellTypes,
-			      std::vector<float> & refractiveIndices,
-			      std::vector<float> & reflectivities,
-			      const float nTot,
-			      const float crystalFluorescence,
-			      const unsigned cladNumber,
-			      const double cladAbsorption,
-			      T_Dev &dev) {
+						const unsigned numberOfTriangles, 
+						const unsigned numberOfLevels,
+						const unsigned numberOfPoints, 
+						const float thicknessOfPrism,
+						std::vector<double> &pointsVector, 
+						std::vector<double> &xOfTriangleCenter, 
+						std::vector<double> &yOfTriangleCenter, 
+						std::vector<unsigned> &positionsOfNormalVectors,
+						std::vector<double> &xOfNormals, 
+						std::vector<double> &yOfNormals,
+						std::vector<int> &forbiddenVector, 
+						std::vector<int> &neighborsVector, 
+						std::vector<float> &surfacesVector,
+						std::vector<double> &betaValuesVector,
+						std::vector<double> &betaCells,
+						std::vector<unsigned> &cellTypes,
+						std::vector<float> & refractiveIndices,
+						std::vector<float> & reflectivities,
+						const float nTot,
+						const float crystalFluorescence,
+						const unsigned cladNumber,
+						const double cladAbsorption,
+						T_Dev &dev) {
 
     // GPU variables
     double totalSurface = 0.;
@@ -239,7 +239,7 @@ Mesh<T_Acc, T_Dev, T_Stream> createMesh(const std::vector<unsigned> &triangleInd
 
 template <typename T_Acc, typename T_Dev, typename T_Stream>
 Mesh<T_Acc, T_Dev, T_Stream> parseMesh( fs::path const rootPath,
-			      T_Dev &dev) {
+						T_Dev &dev) {
 
     // Parse experimentdata from files
     std::vector<unsigned> triangleNormalPoint  = fileToVector<unsigned>(rootPath / "triangleNormalPoint.txt");
@@ -301,28 +301,28 @@ Mesh<T_Acc, T_Dev, T_Stream> parseMesh( fs::path const rootPath,
     assertRange(reflectivities,0,1,false);
 
     return createMesh<T_Acc, T_Dev, T_Stream>(trianglePointIndices,
-					      numberOfTriangles,
-					      numberOfLevels,
-					      numberOfPoints,
-					      thickness,
-					      points,
-					      triangleCenterX,
-					      triangleCenterY,
-					      triangleNormalPoint,
-					      triangleNormalsX,
-					      triangleNormalsY,
-					      forbiddenEdge,
-					      triangleNeighbors,
-					      triangleSurfaces,
-					      betaVolume,
-					      betaCells,
-					      claddingCellTypes,
-					      refractiveIndices,
-					      reflectivities,
-					      nTot,
-					      crystalTFluo,
-					      claddingNumber,
-					      claddingAbsorption,
-					      dev);
+						      numberOfTriangles,
+						      numberOfLevels,
+						      numberOfPoints,
+						      thickness,
+						      points,
+						      triangleCenterX,
+						      triangleCenterY,
+						      triangleNormalPoint,
+						      triangleNormalsX,
+						      triangleNormalsY,
+						      forbiddenEdge,
+						      triangleNeighbors,
+						      triangleSurfaces,
+						      betaVolume,
+						      betaCells,
+						      claddingCellTypes,
+						      refractiveIndices,
+						      reflectivities,
+						      nTot,
+						      crystalTFluo,
+						      claddingNumber,
+						      claddingAbsorption,
+						      dev);
 }
 
