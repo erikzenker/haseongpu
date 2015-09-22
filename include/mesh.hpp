@@ -35,6 +35,7 @@
 
 #include <curand_mtgp32.h> /* curandStateMtgp32 */
 #include <host_defines.h> /* __host__ __device__ */
+#include <curand_kernel.h> /* curandStateXORWOW_t */
 
 #define REFLECTION_SMALL 1E-3
 #define SMALL 1E-5
@@ -175,7 +176,7 @@ class Mesh {
   void free();
 
   __device__ int getNeighbor(unsigned triangle, int edge) const;
-  __device__ Point genRndPoint(unsigned triangle, unsigned level, curandStateMtgp32 *globalState) const;
+  __device__ Point genRndPoint(unsigned triangle, unsigned level, curandStateXORWOW_t &rndState) const;
   __device__ double getBetaVolume(unsigned triangle, unsigned level) const;
   __device__ double getBetaVolume(unsigned prism) const;
   __device__ NormalRay getNormal(unsigned triangle, int edge) const;
@@ -183,6 +184,7 @@ class Mesh {
   __device__ Point getCenterPoint(unsigned triangle, unsigned level) const;
   __device__ int getForbiddenEdge(unsigned triangle, int edge) const;
   __device__ unsigned getCellType(unsigned triangle) const;
+  __device__ double get_random(uint &m_z, uint &m_w) const;    
 
 
   unsigned getMaxReflections(ReflectionPlane reflectionPlane) const;

@@ -61,15 +61,18 @@ __device__ unsigned getRayNumberWarpbased(unsigned* blockOffset,unsigned raysPer
  *
  */
 __device__ unsigned getRayNumberBlockbased(unsigned* blockOffset,unsigned raysPerSample,unsigned *globalOffsetMultiplicator){
-	// The first thread in the threadblock increases the globalOffsetMultiplicator (without real limit) 
+	// The first thread in the threadblock increases the globalOffsetMultiplicator (without real limit)
+
+    	__syncthreads();
+    
 	if(threadIdx.x == 0){
 		//blockOffset is the new value of the globalOffsetMultiplicator
-		blockOffset[0] = atomicInc(globalOffsetMultiplicator,raysPerSample);
+		blockOffset[0] = atomicAdd(globalOffsetMultiplicator,1);
 	}
 	__syncthreads();
 
 	//multiply blockOffset by 128 (size of the threadblock) 
-	return threadIdx.x + (blockOffset[0] <<7) ;
+	return threadIdx.x + (blockOffset[0] * 128) ;
 }
 
 /**
@@ -84,11 +87,11 @@ __device__ unsigned getRayNumberBlockbased(unsigned* blockOffset,unsigned raysPe
  * @return a random number
  *
  */
-__device__ __inline__ unsigned genRndSigmas(unsigned length, curandStateMtgp32* globalState) {
-  return unsigned(curand_uniform(&globalState[blockIdx.x])*(length-1));
+__device__ __inline__ unsigned genRndSigmas(unsigned length, curandStateXORWOW_t &rndState) {
+  return unsigned(curand_uniform(&rndState)*(length-1));
 }
 
-__global__ void calcSampleGainSumWithReflection(curandStateMtgp32* globalState,
+__global__ void calcSampleGainSumWithReflection(
 						const Mesh mesh, 
 						const unsigned* indicesOfPrisms, 
 						const unsigned* numberOfReflectionSlices,
@@ -103,43 +106,63 @@ __global__ void calcSampleGainSumWithReflection(curandStateMtgp32* globalState,
 						unsigned *globalOffsetMultiplicator
 						) {
 
+    unsigned const subsequence = 0;
+    unsigned const offset = 0;
+    unsigned const seed = 4321;
+  
+    curandStateXORWOW_t rndState;
+  
+    curand_init(seed,
+		subsequence,
+		offset,
+		&rndState);
+
   int rayNumber = 0;
   double gainSumTemp = 0;
   double gainSumSquareTemp = 0;
   Point samplePoint = mesh.getSamplePoint(sample_i);
   __shared__ unsigned blockOffset[4]; // 4 in case of warp-based raynumber
 
+  if(threadIdx.x == 0){
+      blockOffset[0] = 0;
+  }
+  
+  __syncthreads();
+  
   // One thread can compute multiple rays
-  while (true) {
+
+  while(blockOffset[0] * 128 < raysPerSample){
+
 	// the whole block gets a new offset (==workload)
 	rayNumber = getRayNumberBlockbased(blockOffset,raysPerSample,globalOffsetMultiplicator);
-	if(rayNumber >= raysPerSample) break;
+	if(rayNumber < raysPerSample) {
 
-    // Get triangle/prism to start ray from
-    unsigned startPrism             = indicesOfPrisms[rayNumber];
-    unsigned reflection_i           = numberOfReflectionSlices[rayNumber];
-    unsigned reflections            = (reflection_i + 1) / 2;
-    ReflectionPlane reflectionPlane = (reflection_i % 2 == 0) ? BOTTOM_REFLECTION : TOP_REFLECTION;
-    unsigned startLevel             = startPrism / mesh.numberOfTriangles;
-    unsigned startTriangle          = startPrism - (mesh.numberOfTriangles * startLevel);
-    unsigned reflectionOffset       = reflection_i * mesh.numberOfPrisms;
-    Point startPoint                = mesh.genRndPoint(startTriangle, startLevel, globalState);
+	    // Get triangle/prism to start ray from
+	    unsigned startPrism             = indicesOfPrisms[rayNumber];
+	    unsigned reflection_i           = numberOfReflectionSlices[rayNumber];
+	    unsigned reflections            = (reflection_i + 1) / 2;
+	    ReflectionPlane reflectionPlane = (reflection_i % 2 == 0) ? BOTTOM_REFLECTION : TOP_REFLECTION;
+	    unsigned startLevel             = startPrism / mesh.numberOfTriangles;
+	    unsigned startTriangle          = startPrism - (mesh.numberOfTriangles * startLevel);
+	    unsigned reflectionOffset       = reflection_i * mesh.numberOfPrisms;
+	    Point startPoint                = mesh.genRndPoint(startTriangle, startLevel, rndState);
 	
-	//get a random index in the wavelength array
-    unsigned sigma_i                = genRndSigmas(maxInterpolation, globalState);
+	    //get a random index in the wavelength array
+	    unsigned sigma_i                = 0;//genRndSigmas(maxInterpolation, rndState);
 
-    // Calculate reflections as different ray propagations
-    double gain    = propagateRayWithReflection(startPoint, samplePoint, reflections, reflectionPlane, startLevel, startTriangle, mesh, sigmaA[sigma_i], sigmaE[sigma_i]);
+	    // Calculate reflections as different ray propagations
+	    double gain    = propagateRayWithReflection(startPoint, samplePoint, reflections, reflectionPlane, startLevel, startTriangle, mesh, sigmaA[sigma_i], sigmaE[sigma_i]);
 
-	// include the stimulus from the starting prism and the importance of that ray
-    gain          *= mesh.getBetaVolume(startPrism) * importance[startPrism + reflectionOffset];
+	    // include the stimulus from the starting prism and the importance of that ray
+	    gain          *= mesh.getBetaVolume(startPrism) * importance[startPrism + reflectionOffset];
     
-    assert(!isnan(mesh.getBetaVolume(startPrism)));
-    assert(!isnan(importance[startPrism + reflectionOffset]));
-    assert(!isnan(gain));
+	    assert(!isnan(mesh.getBetaVolume(startPrism)));
+	    assert(!isnan(importance[startPrism + reflectionOffset]));
+	    assert(!isnan(gain));
 
-    gainSumTemp       += gain;
-    gainSumSquareTemp += gain * gain;
+	    gainSumTemp       += gain;
+	    gainSumSquareTemp += gain * gain;
+	}
 
 
   }
@@ -148,7 +171,7 @@ __global__ void calcSampleGainSumWithReflection(curandStateMtgp32* globalState,
 
 }
 
-__global__ void calcSampleGainSum(curandStateMtgp32* globalState,
+__global__ void calcSampleGainSum(
 				  const Mesh mesh, 
 				  const unsigned* indicesOfPrisms, 
 				  const double* importance,
@@ -161,42 +184,51 @@ __global__ void calcSampleGainSum(curandStateMtgp32* globalState,
 				  const unsigned lambdaResolution,
 				  unsigned *globalOffsetMultiplicator
 				  ) {
-
-  int rayNumber = 0; 
-  double gainSumTemp = 0;
-  double gainSumSquareTemp = 0;
-  Point samplePoint = mesh.getSamplePoint(sample_i);
-  __shared__ unsigned blockOffset[4]; // 4 in case of warp-based raynumber
+    
+    int rayNumber = 0; 
+    double gainSumTemp = 0;
+    double gainSumSquareTemp = 0;
+    Point samplePoint = mesh.getSamplePoint(sample_i);
   
-  // One thread can compute multiple rays
-  while(true){
+    __shared__ unsigned blockOffset[4]; // 4 in case of warp-based raynumber
+
+    if(threadIdx.x == 0){
+	blockOffset[0] = 0;
+    }
+  
+    __syncthreads();
+  
+    // One thread can compute multiple rays
+    while(blockOffset[0] * 128 < raysPerSample){
 	// the whole block gets a new offset (==workload)
-    rayNumber = getRayNumberBlockbased(blockOffset,raysPerSample,globalOffsetMultiplicator);
-    if(rayNumber>=raysPerSample) break;
+	rayNumber = getRayNumberBlockbased(blockOffset,raysPerSample,globalOffsetMultiplicator);
+	if(rayNumber < raysPerSample) {
 
-    // Get triangle/prism to start ray from
-    unsigned startPrism             = indicesOfPrisms[rayNumber];
-    unsigned startLevel             = startPrism/mesh.numberOfTriangles;
-    unsigned startTriangle          = startPrism - (mesh.numberOfTriangles * startLevel);
-    Point startPoint                = mesh.genRndPoint(startTriangle, startLevel, globalState);
-    Ray ray                         = generateRay(startPoint, samplePoint);
+	    // Get triangle/prism to start ray from
+	    unsigned startPrism             = indicesOfPrisms[rayNumber];
+	    unsigned startLevel             = startPrism/mesh.numberOfTriangles;
+	    unsigned startTriangle          = startPrism - (mesh.numberOfTriangles * startLevel);
+	    Point startPoint                = mesh.getCenterPoint(startTriangle, startLevel);//mesh.genRndPoint(startTriangle, startLevel, rndState);
+	    Ray ray                         = generateRay(startPoint, samplePoint);
 
-	// get a random index in the wavelength array
-    unsigned sigma_i                = genRndSigmas(lambdaResolution, globalState);
-    assert(sigma_i < lambdaResolution);
+	    // get a random index in the wavelength array
+	    unsigned sigma_i                = 0;//genRndSigmas(lambdaResolution, rndState);
+	    assert(sigma_i < lambdaResolution);
 
-	// calculate the gain for the whole ray at once
-    double gain    = propagateRay(ray, &startLevel, &startTriangle, mesh, sigmaA[sigma_i], sigmaE[sigma_i]);
-    gain          /= ray.length * ray.length; // important, since usually done in the reflection device function
+	    // calculate the gain for the whole ray at once
+	    double gain    = propagateRay(ray, &startLevel, &startTriangle, mesh, sigmaA[sigma_i], sigmaE[sigma_i]);
+	    gain          /= ray.length * ray.length; // important, since usually done in the reflection device function
 
-	// include the stimulus from the starting prism and the importance of that ray
-    gain          *= mesh.getBetaVolume(startPrism) * importance[startPrism];
+	    // include the stimulus from the starting prism and the importance of that ray
+	    gain          *= mesh.getBetaVolume(startPrism) * importance[startPrism];
 
-    gainSumTemp       += gain;
-    gainSumSquareTemp += gain * gain;
+	    gainSumTemp       += gain;
+	    gainSumSquareTemp += gain * gain;
 
-  }
-  atomicAdd(&(gainSum[0]), float(gainSumTemp));
-  atomicAdd(&(gainSumSquare[0]), float(gainSumSquareTemp));
+	}
+
+    }
+    atomicAdd(&(gainSum[0]), float(gainSumTemp));
+    atomicAdd(&(gainSumSquare[0]), float(gainSumSquareTemp));
 
 }

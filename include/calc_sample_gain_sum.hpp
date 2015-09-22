@@ -68,20 +68,20 @@
  *        (see getRayNumberBlockbased())
  *
  */
-__global__ void calcSampleGainSumWithReflection(curandStateMtgp32* globalState, 
-				 const Mesh mesh,
-				 const unsigned* indicesOfPrisms, 
-				 const unsigned* numberOfReflections,
-				 const double* importance,
-				 const unsigned raysPerSample,
-				 float *gainSum,
-				 float *gainSumSquare,
-				 const unsigned sample_i,
-				 const double *sigmaA,
-				 const double *sigmaE,
-         const unsigned maxInterpolation,
-				 unsigned *globalOffsetMultiplicator
-				 );
+__global__ void calcSampleGainSumWithReflection(
+						const Mesh mesh,
+						const unsigned* indicesOfPrisms, 
+						const unsigned* numberOfReflections,
+						const double* importance,
+						const unsigned raysPerSample,
+						float *gainSum,
+						float *gainSumSquare,
+						const unsigned sample_i,
+						const double *sigmaA,
+						const double *sigmaE,
+						const unsigned maxInterpolation,
+						unsigned *globalOffsetMultiplicator
+						);
 
 /**
  * @brief: calculate the sum of all gains for a single sample point s_i, ignoring
@@ -109,7 +109,7 @@ __global__ void calcSampleGainSumWithReflection(curandStateMtgp32* globalState,
  *        (see getRayNumberBlockbased())
  *
  */
-__global__ void calcSampleGainSum(curandStateMtgp32* globalState, 
+__global__ void calcSampleGainSum(
 				 const Mesh mesh,
 				 const unsigned* indicesOfPrisms, 
 				 const double* importance,
@@ -119,6 +119,6 @@ __global__ void calcSampleGainSum(curandStateMtgp32* globalState,
 				 const unsigned sample_i,
 				 const double *sigmaA,
 				 const double *sigmaE,
-         const unsigned maxInterpolation,
+				 const unsigned maxInterpolation,
 				 unsigned *globalOffsetMultiplicator
 				 );

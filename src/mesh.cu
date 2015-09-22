@@ -156,10 +156,23 @@ __device__ int Mesh::getNeighbor(unsigned triangle, int edge) const{
  * Uses a Mersenne Twister PRNG and Barycentric coordinates to generate a
  * random position inside a given triangle in a specific depth
  */
-__device__ Point Mesh::genRndPoint(unsigned triangle, unsigned level, curandStateMtgp32 *globalState) const{
+
+__device__ double get_random(uint &m_z, uint &m_w) const{
+    m_z = 36969 * (m_z & 65535) + (m_z >> 16);
+    m_w = 18000 * (m_w & 65535) + (m_w >> 16);
+    return static_cast<double>((m_z << 16) + m_w) / static_cast<double>(UINT_MAX);  /* 32-bit result */
+}
+
+
+__device__ Point Mesh::genRndPoint(unsigned triangle, unsigned level, curandStateXORWOW_t &rndState) const{
   Point startPoint = {0,0,0};
-  double u = curand_uniform_double(&globalState[blockIdx.x]);
-  double v = curand_uniform_double(&globalState[blockIdx.x]);
+
+  uint m_w = blockIdx.x + 1;
+  uint m_z = blockIdx.x * blockDim.x + threadIdx.x + 1;
+
+  
+  double u = get_random(m_z, m_w);
+  double v = get_random(m_z, m_w);
 
   if((u+v)>1)
   {
@@ -172,7 +185,7 @@ __device__ Point Mesh::genRndPoint(unsigned triangle, unsigned level, curandStat
   int t3 = trianglePointIndices[triangle + 2 * numberOfTriangles];
 
   // convert the random startpoint into coordinates
-  startPoint.z = (level + curand_uniform_double(&globalState[blockIdx.x])) * thickness;
+  startPoint.z = (level + get_random(m_z, m_w)) * thickness;
   startPoint.x = (points[t1] * u) + (points[t2] * v) + (points[t3] * w);
   startPoint.y = (points[t1+numberOfPoints] * u) + (points[t2+numberOfPoints] * v) + (points[t3+numberOfPoints] * w);
 

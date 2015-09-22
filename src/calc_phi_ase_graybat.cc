@@ -105,7 +105,7 @@ void processSamples(const Vertex slave,
 
     typedef typename Cage::Edge Edge;
     
-    verbosity &= ~V_PROGRESS;
+    //verbosity &= ~V_PROGRESS;
 
     // Messages
     std::array<float, 4> resultMsg;
@@ -134,8 +134,8 @@ void processSamples(const Vertex slave,
 			 compute,
 			 mesh,
 			 result,
-			 sampleMsg.at(0),
-			 sampleMsg.at(0) + 1,
+			 0,//sampleMsg.at(0),
+			 4209,//sampleMsg.at(0) + 1,
 			 runtime);
 			
 	    unsigned sample_i = sampleMsg[0];
@@ -182,7 +182,7 @@ float calcPhiAseGrayBat ( const ExperimentParameters &experiment,
      * ASE SIMULATION
      **************************************************************************/
     // Create sample indices
-    std::vector<unsigned> samples(mesh.numberOfSamples);
+    std::vector<unsigned> samples(1/*mesh.numberOfSamples*/);
     std::iota(samples.begin(), samples.end(), 0);
 
     // Determine phi ase for each sample

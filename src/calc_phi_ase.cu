@@ -88,7 +88,7 @@ float calcPhiAse ( const ExperimentParameters& experiment,
   unsigned reflectionSlices       = 1 + (2 * maxReflections);
   // In some cases distributeRandomly has to be true !
   // Otherwise bad or no ray distribution possible.
-  bool distributeRandomly         = true;
+  bool distributeRandomly         = false;
   dim3 blockDim(128);             //can't be more than 256 due to restrictions from the Mersenne Twister
                                   // MUST be 128, since in the kernel we use a bitshift << 7
   dim3 gridDim(200);              //can't be more than 200 due to restrictions from the Mersenne Twister
@@ -123,12 +123,14 @@ float calcPhiAse ( const ExperimentParameters& experiment,
   device_vector<double>   dSigmaE             (experiment.sigmaE.begin(),experiment.sigmaE.end());
 
   // CUDA Mersenne twister (can not have more than 200 blocks!)
-  curandStateMtgp32 *devMTGPStates;
-  mtgp32_kernel_params *devKernelParams;
-  CUDA_CALL(cudaMalloc((void **)&devMTGPStates, gridDim.x  * sizeof(curandStateMtgp32)));
-  CUDA_CALL(cudaMalloc((void**)&devKernelParams, sizeof(mtgp32_kernel_params)));
-  CURAND_CALL(curandMakeMTGP32Constants(mtgp32dc_params_fast_11213, devKernelParams));
-  CURAND_CALL(curandMakeMTGP32KernelState(devMTGPStates, mtgp32dc_params_fast_11213, devKernelParams, gridDim.x, SEED + minSample_i));
+  // curandStateMtgp32 *devMTGPStates;
+  // mtgp32_kernel_params *devKernelParams;
+  // CUDA_CALL(cudaMalloc((void **)&devMTGPStates, gridDim.x  * sizeof(curandStateMtgp32)));
+  // CUDA_CALL(cudaMalloc((void**)&devKernelParams, sizeof(mtgp32_kernel_params)));
+  // CURAND_CALL(curandMakeMTGP32Constants(mtgp32dc_params_fast_11213, devKernelParams));
+  // CURAND_CALL(curandMakeMTGP32KernelState(devMTGPStates, mtgp32dc_params_fast_11213, devKernelParams, gridDim.x, SEED + minSample_i));
+
+
 
   // Calculation for each sample point
   for(unsigned sample_i = minSample_i; sample_i < maxSample_i; ++sample_i){
@@ -148,7 +150,7 @@ float calcPhiAse ( const ExperimentParameters& experiment,
     float hSumPhi = thrust::reduce(dPreImportance.begin(), dPreImportance.end(),0.);
 
     while(mseTooHigh){
-      CURAND_CALL(curandMakeMTGP32KernelState(devMTGPStates, mtgp32dc_params_fast_11213, devKernelParams, gridDim.x, SEED + sample_i));
+	//CURAND_CALL(curandMakeMTGP32KernelState(devMTGPStates, mtgp32dc_params_fast_11213, devKernelParams, gridDim.x, SEED + sample_i));
       unsigned run = 0;
       while(run < compute.maxRepetitions && mseTooHigh){
 	run++;
@@ -172,33 +174,33 @@ float calcPhiAse ( const ExperimentParameters& experiment,
 	dGainSumSquare[0] = 0;
 
 	if(experiment.useReflections){
-	  calcSampleGainSumWithReflection<<< gridDim, blockDim >>>(devMTGPStates,
-								   mesh, 
-								   raw_pointer_cast(&dIndicesOfPrisms[0]), 
-								   raw_pointer_cast(&dNumberOfReflectionSlices[0]), 
-								   raw_pointer_cast(&dImportance[0]),
-								   hRaysPerSampleDump, 
-								   raw_pointer_cast(&dGainSum[0]), 
-								   raw_pointer_cast(&dGainSumSquare[0]),
-								   sample_i, 
-								   raw_pointer_cast(&dSigmaA[0]),
-								   raw_pointer_cast(&dSigmaE[0]),
-								   experiment.sigmaA.size(),
-								   raw_pointer_cast(&(device_vector<unsigned> (1,0))[0]));
+	    calcSampleGainSumWithReflection<<< gridDim, blockDim >>>(//rndState,
+								     mesh, 
+								     raw_pointer_cast(&dIndicesOfPrisms[0]), 
+								     raw_pointer_cast(&dNumberOfReflectionSlices[0]), 
+								     raw_pointer_cast(&dImportance[0]),
+								     hRaysPerSampleDump, 
+								     raw_pointer_cast(&dGainSum[0]), 
+								     raw_pointer_cast(&dGainSumSquare[0]),
+								     sample_i, 
+								     raw_pointer_cast(&dSigmaA[0]),
+								     raw_pointer_cast(&dSigmaE[0]),
+								     experiment.sigmaA.size(),
+								     raw_pointer_cast(&(device_vector<unsigned> (1,0))[0]));
 	}
 	else{
-	  calcSampleGainSum<<< gridDim, blockDim >>>(devMTGPStates,
-						     mesh, 
-						     raw_pointer_cast(&dIndicesOfPrisms[0]), 
-						     raw_pointer_cast(&dImportance[0]),
-						     hRaysPerSampleDump, 
-						     raw_pointer_cast(&dGainSum[0]), 
-						     raw_pointer_cast(&dGainSumSquare[0]),
-						     sample_i, 
-						     raw_pointer_cast(&dSigmaA[0]),
-						     raw_pointer_cast(&dSigmaE[0]),
-						     experiment.sigmaA.size(),
-						     raw_pointer_cast(&(device_vector<unsigned> (1,0))[0]));
+	    calcSampleGainSum<<< gridDim, blockDim >>>(//rndState,
+						       mesh, 
+						       raw_pointer_cast(&dIndicesOfPrisms[0]), 
+						       raw_pointer_cast(&dImportance[0]),
+						       hRaysPerSampleDump, 
+						       raw_pointer_cast(&dGainSum[0]), 
+						       raw_pointer_cast(&dGainSumSquare[0]),
+						       sample_i, 
+						       raw_pointer_cast(&dSigmaA[0]),
+						       raw_pointer_cast(&dSigmaE[0]),
+						       experiment.sigmaA.size(),
+						       raw_pointer_cast(&(device_vector<unsigned> (1,0))[0]));
 	}
 
 	float mseTmp = calcMSE(dGainSum[0], dGainSumSquare[0], hRaysPerSampleDump);
@@ -212,6 +214,7 @@ float calcPhiAse ( const ExperimentParameters& experiment,
 	  result.phiAse.at(sample_i) = dGainSum[0]; 
 	  result.phiAse.at(sample_i)   /= *raysPerSampleIter * 4.0f * M_PI;
 	  result.totalRays.at(sample_i) = *raysPerSampleIter;
+	  std::cout << sample_i << " " << result.phiAse.at(sample_i) << std::endl;
 	}
 	if(result.mse.at(sample_i) < experiment.mseThreshold) mseTooHigh = false;
       }
@@ -224,15 +227,15 @@ float calcPhiAse ( const ExperimentParameters& experiment,
 	  
     }
 
-     if(verbosity & V_PROGRESS){
-       fancyProgressBar(mesh.numberOfSamples);
-     }
+    // if(verbosity & V_PROGRESS){
+    //    fancyProgressBar(mesh.numberOfSamples);
+    //  }
 
   }
     
   // Free Memory
-  cudaFree(devMTGPStates);
-  cudaFree(devKernelParams);
+  // cudaFree(devMTGPStates);
+  // cudaFree(devKernelParams);
 
   runtime = difftime(time(0),starttime);
   return runtime;

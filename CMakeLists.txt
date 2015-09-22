@@ -13,45 +13,45 @@ endif(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.8.2)
 ###############################################################################
 # CUDA
 ###############################################################################
-find_package(CUDA 5.5 REQUIRED)
+find_package(CUDA 7.0 REQUIRED)
 
-set(CUDA_ARCH sm_20 CACHE STRING "Set GPU architecture")
+#set(CUDA_ARCH sm_20 CACHE STRING "Set GPU architecture")
 # Separate C++ from CUDA file compilation (So we can use our own compiler)
 set(CUDA_SEPARABLE_COMPILATION ON)
 # Do not propagate CXX flags to the nvcc host compiler (especially -std=c++11)
 set(CUDA_PROPAGATE_HOST_FLAGS OFF)
 
-string(COMPARE EQUAL ${CUDA_ARCH} "sm_10" IS_CUDA_ARCH_UNSUPPORTED)
-string(COMPARE EQUAL ${CUDA_ARCH} "sm_11" IS_CUDA_ARCH_UNSUPPORTED)
-string(COMPARE EQUAL ${CUDA_ARCH} "sm_12" IS_CUDA_ARCH_UNSUPPORTED)
-string(COMPARE EQUAL ${CUDA_ARCH} "sm_13" IS_CUDA_ARCH_UNSUPPORTED)
+#string(COMPARE EQUAL ${CUDA_ARCH} "sm_10" IS_CUDA_ARCH_UNSUPPORTED)
+#string(COMPARE EQUAL ${CUDA_ARCH} "sm_11" IS_CUDA_ARCH_UNSUPPORTED)
+#string(COMPARE EQUAL ${CUDA_ARCH} "sm_12" IS_CUDA_ARCH_UNSUPPORTED)
+#string(COMPARE EQUAL ${CUDA_ARCH} "sm_13" IS_CUDA_ARCH_UNSUPPORTED)
 
-if(IS_CUDA_ARCH_UNSUPPORTED)
-  message(FATAL_ERROR "Unsupported CUDA architecture ${CUDA_ARCH} specified. "
-    "SM 2.0 or higher is required.")
-endif(IS_CUDA_ARCH_UNSUPPORTED)
+#if(IS_CUDA_ARCH_UNSUPPORTED)
+#  message(FATAL_ERROR "Unsupported CUDA architecture ${CUDA_ARCH} specified. "
+#    "SM 2.0 or higher is required.")
+#endif(IS_CUDA_ARCH_UNSUPPORTED)
 
-set(CUDA_FTZ "--ftz=false" CACHE STRING "Set flush to zero for GPU")
+#set(CUDA_FTZ "--ftz=false" CACHE STRING "Set flush to zero for GPU")
 
-set(CUDA_MATH --use_fast_math CACHE STRING "Enable fast-math" )
-option(CUDA_SHOW_REGISTER "Show kernel registers and create PTX" OFF)
-option(CUDA_KEEP_FILES "Keep all intermediate files that are generated during internal compilation steps (folder: nvcc_tmp)" OFF)
-option(CUDA_SHOW_CODELINES "Show kernel lines in cuda-gdb and cuda-memcheck" OFF)
+#set(CUDA_MATH --use_fast_math CACHE STRING "Enable fast-math" )
+#option(CUDA_SHOW_REGISTER "Show kernel registers and create PTX" OFF)
+#option(CUDA_KEEP_FILES "Keep all intermediate files that are generated during internal compilation steps (folder: nvcc_tmp)" OFF)
+#option(CUDA_SHOW_CODELINES "Show kernel lines in cuda-gdb and cuda-memcheck" OFF)
 
-if(CUDA_SHOW_CODELINES)
-  set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" --source-in-ptx -Xcompiler -rdynamic -lineinfo)
-  set(CUDA_KEEP_FILES ON CACHE BOOL "activate keep files" FORCE)
-endif(CUDA_SHOW_CODELINES)
+#if(CUDA_SHOW_CODELINES)
+#  set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" --source-in-ptx -Xcompiler -rdynamic -lineinfo)
+#  set(CUDA_KEEP_FILES ON CACHE BOOL "activate keep files" FORCE)
+#endif(CUDA_SHOW_CODELINES)
 
-set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} ${nvcc_flags} -arch=${CUDA_ARCH} ${CUDA_MATH} ${CUDA_FTZ})
-if(CUDA_SHOW_REGISTER)
-  set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" -Xptxas=-v)
-endif(CUDA_SHOW_REGISTER)
+#set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} ${nvcc_flags} -arch=${CUDA_ARCH} ${CUDA_MATH} ${CUDA_FTZ})
+#if(CUDA_SHOW_REGISTER)
+#  set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" -Xptxas=-v)
+#endif(CUDA_SHOW_REGISTER)
 
-if(CUDA_KEEP_FILES)
-  make_directory("${PROJECT_BINARY_DIR}/nvcc_tmp")
-  set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" --keep --keep-dir "${PROJECT_BINARY_DIR}/nvcc_tmp")
-endif(CUDA_KEEP_FILES)
+#if(CUDA_KEEP_FILES)
+#  make_directory("${PROJECT_BINARY_DIR}/nvcc_tmp")
+#  set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" --keep --keep-dir "${PROJECT_BINARY_DIR}/nvcc_tmp")
+#endif(CUDA_KEEP_FILES)
 
 
 
