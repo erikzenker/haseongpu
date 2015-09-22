@@ -258,7 +258,7 @@ struct CalcSampleGainSum {
 		unsigned startPrism             = indicesOfPrisms[rayNumber]; 
 		unsigned startLevel             = startPrism/mesh.numberOfTriangles;
 		unsigned startTriangle          = startPrism - (mesh.numberOfTriangles * startLevel);
-		Point startPoint                = mesh.getCenterPoint(startTriangle, startLevel);//mesh.genRndPoint(acc, startTriangle, startLevel);
+		Point startPoint                = mesh.genRndPoint(acc, startTriangle, startLevel);
 		Ray ray                         = generateRay(startPoint, samplePoint);
 		
 		// get a random index in the wavelength array
