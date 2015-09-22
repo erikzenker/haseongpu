@@ -28,6 +28,7 @@
 #include <graybat/graphPolicy/BGL.hpp>
 #include <graybat/pattern/BidirectionalStar.hpp>
 #include <graybat/mapping/Roundrobin.hpp>
+#include <graybat/mapping/Consecutive.hpp>
 
 // HASEonGPU
 #include <calc_phi_ase.hpp>
@@ -54,12 +55,13 @@ void distributeSamples(Vertex master,
     std::array<float, 4> resultMsg;
     std::array<int, 1>   sampleMsg; 
     unsigned nReceivedResults = 0;
-    
+
     auto sample = samples.begin();
     while(nReceivedResults != samples.size()){
         // Receive request or results
         Edge inEdge = cage.recv(resultMsg);
-		
+
+
         if(resultMsg[0] == requestTag){
             
             if(sample != samples.end()){
@@ -103,7 +105,7 @@ void processSamples(const Vertex slave,
 
     typedef typename Cage::Edge Edge;
     
-    verbosity &= ~V_PROGRESS;
+    //verbosity &= ~V_PROGRESS;
 
     // Messages
     std::array<float, 4> resultMsg;
@@ -112,6 +114,8 @@ void processSamples(const Vertex slave,
     float runtime = 0.0;
 
     bool abort = false;
+
+    unsigned nIds = cage.getVertices().size() - 1;
     
     while(!abort){
 
@@ -131,8 +135,8 @@ void processSamples(const Vertex slave,
 	    calcPhiAse ( experiment,
 			 compute,
 			 result,
-			 sampleMsg.at(0),
-			 sampleMsg.at(0) + 1,
+			 0,//sampleMsg.at(0),
+			 (4209 / nIds),//sampleMsg.at(0) + 1,
 			 runtime);
 			
 	    unsigned sample_i = sampleMsg[0];
@@ -178,7 +182,7 @@ float calcPhiAseGrayBat ( const ExperimentParameters &experiment,
      * ASE SIMULATION
      **************************************************************************/
     // Create sample indices
-    std::vector<unsigned> samples(experiment.numberOfSamples);
+    std::vector<unsigned> samples(cage.getVertices().size()-1 /*experiment.numberOfSamples*/);
     std::iota(samples.begin(), samples.end(), 0);
 
     // Determine phi ase for each sample
@@ -197,12 +201,15 @@ float calcPhiAseGrayBat ( const ExperimentParameters &experiment,
 	 *******************************************************************/
 	if(vertex != master){
 	    processSamples(vertex, master, cage, experiment, compute, result);
+	    std::cout << "Finished" << std::endl;
 	  cage.~Cage();
 	  exit(0);
 
 	}	
 
     }
+
+
     
     return cage.getVertices().size() - 1;
     

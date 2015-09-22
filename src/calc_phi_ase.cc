@@ -31,7 +31,7 @@
 
 // HASEonGPU
 //#include <write_to_vtk.hpp>
-//#include <progressbar.hpp>         /*progressBar */
+#include <progressbar.hpp>         /*progressBar */
 //#include <logging.hpp>
 #include <importance_sampling.hpp>  /* importanceSamplingPropagation, importanceSamplingDistribution */
 #include <types.hpp>                /* ExperimentParameter, ComputeParameter, Result */
@@ -203,7 +203,7 @@ float calcPhiAse ( const ExperimentParameters& experiment,
     // In some cases distributeRandomly has to be true !
     // Good comment, but next time describe why !
     // Otherwise bad or no ray distribution possible.
-    bool distributeRandomly         = true;
+    bool distributeRandomly         = false;
     
     // Divide RaysPerSample range into steps
     std::vector<int>  raysPerSampleList = generateRaysPerSampleExpList(experiment.minRaysPerSample,
@@ -362,11 +362,11 @@ float calcPhiAse ( const ExperimentParameters& experiment,
 		
     		alpaka::mem::view::getPtrNative(hGainSum)[0]                   = 0;
     		alpaka::mem::view::getPtrNative(hGainSumSquare)[0]             = 0;
-    		//alpaka::mem::view::getPtrNative(hGlobalOffsetMultiplicator)[0] = 0;
+    		alpaka::mem::view::getPtrNative(hGlobalOffsetMultiplicator)[0] = 0;
 
     		alpaka::mem::view::copy(stream, dGainSum, hGainSum, static_cast<Extents>(1));
     		alpaka::mem::view::copy(stream, dGainSumSquare, hGainSumSquare, static_cast<Extents>(1));
-    		//alpaka::mem::view::copy(stream, dGlobalOffsetMultiplicator, hGlobalOffsetMultiplicator, static_cast<Extents>(1));    		
+    		alpaka::mem::view::copy(stream, dGlobalOffsetMultiplicator, hGlobalOffsetMultiplicator, static_cast<Extents>(1));    		
 
     		// FIXIT: following 4 lines just to have some temporary global variable in the kernel
 
@@ -433,7 +433,7 @@ float calcPhiAse ( const ExperimentParameters& experiment,
     		    result.phiAse.at(sample_i)    = alpaka::mem::view::getPtrNative(hGainSum)[0]; 
     		    result.phiAse.at(sample_i)   /= *raysPerSampleIter * 4.0f * M_PI;
     		    result.totalRays.at(sample_i) = *raysPerSampleIter;
-    		    std::cout << result.phiAse.at(sample_i) << std::endl;
+    		    //std::cout << sample_i << " " << result.phiAse.at(sample_i) << std::endl;
     		}
 
 
@@ -449,7 +449,7 @@ float calcPhiAse ( const ExperimentParameters& experiment,
      	}
 
     	// if(verbosity & V_PROGRESS){
-    	//     fancyProgressBar(mesh.numberOfSamples);
+	fancyProgressBar(4210);
     	// }
 
     }

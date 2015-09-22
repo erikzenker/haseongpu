@@ -140,7 +140,7 @@ struct CalcSampleGainSumWithReflection {
 	auto * blockOffset(alpaka::block::shared::allocArr<unsigned, 4>(acc)); // 4 in case of warp-based raynumber
 	blockOffset[0] = 0;
 
-	const unsigned nElementsPerThread = 1;
+	const unsigned nElementsPerThread = 128;
 
 	auto localTId = alpaka::workdiv::getWorkDiv<alpaka::Block, alpaka::Threads>(acc)[0];
 	
@@ -291,11 +291,11 @@ struct CalcSampleGainSum {
 		unsigned startPrism             = indicesOfPrisms[rayNumber]; 
 		unsigned startLevel             = startPrism/mesh.numberOfTriangles;
 		unsigned startTriangle          = startPrism - (mesh.numberOfTriangles * startLevel);
-		Point startPoint                = mesh.genRndPoint(acc, startTriangle, startLevel);
+		Point startPoint                = mesh.genRndPoint(acc, startTriangle, startLevel);//mesh.getCenterPoint(startTriangle, startLevel);
 		Ray ray                         = generateRay(startPoint, samplePoint);
 
 		// get a random index in the wavelength array
-		unsigned sigma_i                = genRndSigmas(acc, maxInterpolation);
+		unsigned sigma_i                = 0;//genRndSigmas(acc, maxInterpolation);
 		assert(sigma_i < maxInterpolation);
 
 		// calculate the gain for the whole ray at once

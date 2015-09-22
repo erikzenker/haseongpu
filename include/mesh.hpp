@@ -31,6 +31,7 @@
 
 //CLIB
 #include <cfloat> /* DBL_MAX*/
+#include <climits> /* UINT_MAX */
 
 // STL
 #include <vector>
@@ -302,19 +303,28 @@ class Mesh {
      * random position inside a given triangle in a specific depth
      */
     
-
+ALPAKA_FN_ACC double get_random(uint &m_z, uint &m_w) const{
+    m_z = 36969 * (m_z & 65535) + (m_z >> 16);
+    m_w = 18000 * (m_w & 65535) + (m_w >> 16);
+    return static_cast<double>((m_z << 16) + m_w) / static_cast<double>(UINT_MAX);  /* 32-bit result */
+}
 
     //FIXIT: use random number generator of alpaka (picongpu: src/libPMACC/startposition/RandImpl)
 
     ALPAKA_FN_ACC Point genRndPoint(T_Acc const &acc, unsigned triangle, unsigned level) const{
 	// Random number generator
 	// FIXIT: No need to initialize this again and again ?
-	Gen gen(alpaka::rand::generator::createDefault(acc, alpaka::idx::getIdx<alpaka::Grid, alpaka::Blocks>(acc)[0], 0));
-	Dist dist(alpaka::rand::distribution::createUniformReal<float>(acc));
+	//Gen gen(alpaka::rand::generator::createDefault(acc, alpaka::idx::getIdx<alpaka::Grid, alpaka::Blocks>(acc)[0], 0));
+	//Dist dist(alpaka::rand::distribution::createUniformReal<float>(acc));
+
+	uint m_w = alpaka::idx::getIdx<alpaka::Grid, alpaka::Blocks>(acc)[0] + 1;    /* must not be zero, nor 0x464fffff */
+	uint m_z = alpaka::idx::getIdx<alpaka::Grid, alpaka::Blocks>(acc)[0] * alpaka::idx::getIdx<alpaka::Block, alpaka::Threads>(acc)[0] + 1;    /* must not be zero, nor 0x9068ffff */
+	
+
 	
 	Point startPoint = {0,0,0};
-	double u = dist(gen); // curand_uniform_double(&globalState[blockIdx.x]);
-	double v = dist(gen); // curand_uniform_double(&globalState[blockIdx.x]);
+	double u = get_random(m_z, m_w); // curand_uniform_double(&globalState[blockIdx.x]);
+	double v = get_random(m_z, m_w); // curand_uniform_double(&globalState[blockIdx.x]);
 
 	if((u+v)>1) {
 		u = 1-u;
@@ -327,7 +337,7 @@ class Mesh {
 	int t3 = alpaka::mem::view::getPtrNative(trianglePointIndices)[triangle + 2 * numberOfTriangles];
 
 	// convert the random startpoint into coordinates
-	startPoint.z = (level + dist(gen)) * thickness;
+	startPoint.z = (level + get_random(m_z, m_w)) * thickness;
 	startPoint.x =
 	    (alpaka::mem::view::getPtrNative(points)[t1] * u) +
 	    (alpaka::mem::view::getPtrNative(points)[t2] * v) +
