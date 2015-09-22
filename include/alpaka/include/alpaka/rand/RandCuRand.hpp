@@ -64,7 +64,7 @@ namespace alpaka
                 public:
                     curandStateXORWOW_t m_State;
                 };
-            }
+	    }
         }
         namespace distribution
         {

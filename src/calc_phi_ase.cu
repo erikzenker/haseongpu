@@ -32,7 +32,7 @@
 
 // HASEonGPU
 //#include <write_to_vtk.hpp>
-//#include <progressbar.hpp>         /*progressBar */
+#include <progressbar.hpp>         /*progressBar */
 //#include <logging.hpp>
 #include <importance_sampling.hpp>  /* importanceSamplingPropagation, importanceSamplingDistribution */
 #include <types.hpp>                /* ExperimentParameter, ComputeParameter, Result */
@@ -194,7 +194,7 @@ float calcPhiAse ( const ExperimentParameters& experiment,
     						 static_cast<Size>(reflectionSlices));
     const alpaka::Vec<Dim, Size> grid (static_cast<Size>(200), //can't be more than 200 due to restrictions from the Mersenne Twister, MapPrefixSumToPrism needs number of prisms threads
     				       static_cast<Size>(1));
-    const alpaka::Vec<Dim, Size> blocks (static_cast<Size>(1),
+    const alpaka::Vec<Dim, Size> blocks (static_cast<Size>(128),
     					 static_cast<Size>(1)); // can't be more than 256 due to restrictions from the Mersenne Twister
                                                                 // MUST be 128, since in the kernel we use a bitshift << 7
 
@@ -205,7 +205,7 @@ float calcPhiAse ( const ExperimentParameters& experiment,
     // In some cases distributeRandomly has to be true !
     // Good comment, but next time describe why !
     // Otherwise bad or no ray distribution possible.
-    bool distributeRandomly         = true;
+    bool distributeRandomly         = false;
     
     // Divide RaysPerSample range into steps
     std::vector<int>  raysPerSampleList = generateRaysPerSampleExpList(experiment.minRaysPerSample,
@@ -364,11 +364,11 @@ float calcPhiAse ( const ExperimentParameters& experiment,
 		
     		alpaka::mem::view::getPtrNative(hGainSum)[0]                   = 0;
     		alpaka::mem::view::getPtrNative(hGainSumSquare)[0]             = 0;
-    		//alpaka::mem::view::getPtrNative(hGlobalOffsetMultiplicator)[0] = 0;
+    		alpaka::mem::view::getPtrNative(hGlobalOffsetMultiplicator)[0] = 0;
 
     		alpaka::mem::view::copy(stream, dGainSum, hGainSum, static_cast<Extents>(1));
     		alpaka::mem::view::copy(stream, dGainSumSquare, hGainSumSquare, static_cast<Extents>(1));
-    		//alpaka::mem::view::copy(stream, dGlobalOffsetMultiplicator, hGlobalOffsetMultiplicator, static_cast<Extents>(1));    		
+    		alpaka::mem::view::copy(stream, dGlobalOffsetMultiplicator, hGlobalOffsetMultiplicator, static_cast<Extents>(1));    		
 
     		// FIXIT: following 4 lines just to have some temporary global variable in the kernel
 
@@ -415,13 +415,13 @@ float calcPhiAse ( const ExperimentParameters& experiment,
     		}
 
 
-    		alpaka::mem::view::copy(stream, hGlobalOffsetMultiplicator, dGlobalOffsetMultiplicator, static_cast<Extents>(1));
+    		//alpaka::mem::view::copy(stream, hGlobalOffsetMultiplicator, dGlobalOffsetMultiplicator, static_cast<Extents>(1));
     		alpaka::mem::view::copy(stream, hGainSum, dGainSum, static_cast<Extents>(1));
     		alpaka::mem::view::copy(stream, hGainSumSquare, dGainSumSquare, static_cast<Extents>(1));
 		
     		double mseTmp = calcMSE(alpaka::mem::view::getPtrNative(hGainSum)[0],
-    				       alpaka::mem::view::getPtrNative(hGainSumSquare)[0],
-    				       raysPerSampleDump);
+					alpaka::mem::view::getPtrNative(hGainSumSquare)[0],
+					raysPerSampleDump);
 
     		//std::cout << mseTmp << " " << raysPerSampleDump << " " << alpaka::mem::view::getPtrNative(hGlobalOffsetMultiplicator)[0] << " " << alpaka::mem::view::getPtrNative(hGainSum)[0] << " " << alpaka::mem::view::getPtrNative(hGainSumSquare)[0] << std::endl;
 		
@@ -435,7 +435,7 @@ float calcPhiAse ( const ExperimentParameters& experiment,
     		    result.phiAse.at(sample_i)    = alpaka::mem::view::getPtrNative(hGainSum)[0]; 
     		    result.phiAse.at(sample_i)   /= *raysPerSampleIter * 4.0f * M_PI;
     		    result.totalRays.at(sample_i) = *raysPerSampleIter;
-    		    //std::cout << result.phiAse.at(sample_i) << std::endl;
+    		    std::cout << sample_i << " " << result.phiAse.at(sample_i) << std::endl;
     		}
 
 
@@ -451,7 +451,8 @@ float calcPhiAse ( const ExperimentParameters& experiment,
      	}
 
     	// if(verbosity & V_PROGRESS){
-    	//     fancyProgressBar(mesh.numberOfSamples);
+	//fancyProgressBar(mesh.numberOfSamples);
+	//fancyProgressBar(4210);
     	// }
 
     }

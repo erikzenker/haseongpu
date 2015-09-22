@@ -33,6 +33,7 @@ find_package(CUDA 7.0 REQUIRED)
 set(CUDA_SEPARABLE_COMPILATION ON)
 # Do not propagate CXX flags to the nvcc host compiler (especially -std=c++11)
 set(CUDA_PROPAGATE_HOST_FLAGS OFF)
+#set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" -Xptxas=-v)
 
 #set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" -std=c++11)
 #set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" -x=cu)
