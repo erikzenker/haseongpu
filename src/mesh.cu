@@ -157,7 +157,7 @@ __device__ int Mesh::getNeighbor(unsigned triangle, int edge) const{
  * random position inside a given triangle in a specific depth
  */
 
-__device__ double get_random(uint &m_z, uint &m_w) const{
+__device__ double Mesh::get_random(uint &m_z, uint &m_w) const{
     m_z = 36969 * (m_z & 65535) + (m_z >> 16);
     m_w = 18000 * (m_w & 65535) + (m_w >> 16);
     return static_cast<double>((m_z << 16) + m_w) / static_cast<double>(UINT_MAX);  /* 32-bit result */
