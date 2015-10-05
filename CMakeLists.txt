@@ -33,7 +33,7 @@ endif(IS_CUDA_ARCH_UNSUPPORTED)
 
 set(CUDA_FTZ "--ftz=false" CACHE STRING "Set flush to zero for GPU")
 
-set(CUDA_MATH --use_fast_math CACHE STRING "Enable fast-math" )
+#set(CUDA_MATH --use_fast_math CACHE STRING "Enable fast-math" )
 option(CUDA_SHOW_REGISTER "Show kernel registers and create PTX" OFF)
 option(CUDA_KEEP_FILES "Keep all intermediate files that are generated during internal compilation steps (folder: nvcc_tmp)" OFF)
 option(CUDA_SHOW_CODELINES "Show kernel lines in cuda-gdb and cuda-memcheck" OFF)

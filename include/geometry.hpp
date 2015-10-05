@@ -52,7 +52,7 @@ typedef Point Vector;
 struct Ray {
   Point p;
   Vector dir;
-  float length;
+  double length;
 };
 
 struct NormalRay {
@@ -63,7 +63,7 @@ struct NormalRay {
 enum ReflectionPlane {TOP_REFLECTION = 1, BOTTOM_REFLECTION = -1};
 
 __host__ __device__ Vector direction(Point startPoint, Point endPoint);
-__host__ __device__ float distance(Point startPoint, Point endPoint);
+__host__ __device__ double distance(Point startPoint, Point endPoint);
 __host__ __device__ Ray generateRay(Point startPoint, Point endPoint);
 __host__ __device__ Ray normalizeRay(Ray ray);
 

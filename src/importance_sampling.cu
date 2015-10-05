@@ -49,6 +49,11 @@ __global__ void propagateFromTriangleCenter(const Mesh mesh,
 
   double gain = 0;
   unsigned reflection_i = blockIdx.z;
+
+  // if(blockIdx.z == 0){
+  //       printf("block_x: %u  block_y: %u block_z: %u\n", blockIdx.x, blockIdx.y, blockIdx.z);
+  // }
+  
   unsigned reflections = (reflection_i + 1) / 2;
   ReflectionPlane reflectionPlane  = (reflection_i % 2 == 0)? BOTTOM_REFLECTION : TOP_REFLECTION;
 
@@ -56,17 +61,24 @@ __global__ void propagateFromTriangleCenter(const Mesh mesh,
   if(startPrism >= mesh.numberOfPrisms){
     return;
   }
+
   unsigned startLevel = startPrism/(mesh.numberOfTriangles);
   unsigned startTriangle = startPrism - (mesh.numberOfTriangles * startLevel);
   Point startPoint = mesh.getCenterPoint(startTriangle, startLevel);
   Point samplePoint = mesh.getSamplePoint(sample_i);
   unsigned reflectionOffset = reflection_i * mesh.numberOfPrisms;
 
-  gain = propagateRayWithReflection(startPoint, samplePoint, reflections, reflectionPlane, startLevel, startTriangle, mesh, sigmaA, sigmaE); 
+  //if(startPrism == 0 && reflections == 6 && reflectionPlane == BOTTOM_REFLECTION)  
+  gain = propagateRayWithReflection(startPoint, samplePoint, reflections, reflectionPlane, startLevel, startTriangle, mesh, sigmaA, sigmaE);
+
+  // if(startPrism == 0)  
+  //     printf("reflections: %u  prism_i: %u gain: %f\n", reflections, startPrism, gain);
+  
   importance[startPrism + reflectionOffset] = mesh.getBetaVolume(startPrism) * gain;
   if(mesh.getBetaVolume(startPrism) < 0 || gain < 0 || importance[startPrism+reflectionOffset] < 0){
     printf("beta: %f importance: %f gain: %f\n", mesh.getBetaVolume(startPrism), importance[startPrism + reflectionOffset], gain);
   }
+  return;
 
 }
 
@@ -172,8 +184,9 @@ void importanceSamplingPropagation(unsigned sample_i,
 			    dim3 gridDim){
 
 
-  dim3 gridDimReflection(gridDim.x, 1, reflectionSlices);
-  CUDA_CHECK_KERNEL_SYNC(propagateFromTriangleCenter<<< gridDimReflection, blockDim >>>(deviceMesh, preImportance, sample_i, sigmaA, sigmaE));
+    dim3 gridDimReflection(gridDim.x, 1, reflectionSlices);
+    
+    CUDA_CHECK_KERNEL_SYNC(propagateFromTriangleCenter<<< gridDimReflection, blockDim >>>(deviceMesh, preImportance, sample_i, sigmaA, sigmaE));
 
 }
 

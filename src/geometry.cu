@@ -26,13 +26,13 @@ __host__ __device__ Vector direction(Point startPoint, Point endPoint){
   return v;
 }
 
-__host__ __device__ float distance(Point startPoint, Point endPoint){
-  float x, y, z;
-  x = endPoint.x - startPoint.x;
-  y = endPoint.y - startPoint.y;
-  z = endPoint.z - startPoint.z;
-  float d = sqrt(x*x + y*y + z*z);
-  return fabs(d);
+__host__ __device__ double distance(Point startPoint, Point endPoint){
+    double x, y, z;
+    x = endPoint.x - startPoint.x;
+    y = endPoint.y - startPoint.y;
+    z = endPoint.z - startPoint.z;
+    double d = sqrt(x*x + y*y + z*z);
+    return fabs(d);
 
 }
 
